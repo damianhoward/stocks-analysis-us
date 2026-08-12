@@ -50,6 +50,12 @@ docker compose up -d             # Postgres on 5432
 The app is a batch pipeline, not a web service — `bootRun` executes the stages and exits; there
 is no HTTP listener.
 
+If you have a `postgres-data` volume from before Postgres 18, the container will refuse to start:
+the 18+ images keep the cluster in a version-named subdirectory and the compose file now mounts
+`/var/lib/postgresql` rather than `/var/lib/postgresql/data`. The data is local scratch rebuilt by
+the pipeline, so `docker compose down -v` and start again. Preserving it instead means a
+`pg_upgrade`, which is not worth it for a development database.
+
 ## Running individual pipeline stages
 
 The pipeline is event-driven: by default `bootRun` fires the first event (`ZacksSectorMappingStartEvent`) and each stage publishes the next stage's start event on completion. To start the pipeline from any other stage, pass `-Devent=<StartEventName>`:
