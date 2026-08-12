@@ -1,8 +1,8 @@
 # US Equity Universe Pipeline
 
-[![CI](https://github.com/damian1000/stocks-analysis-us/actions/workflows/ci.yml/badge.svg)](https://github.com/damian1000/stocks-analysis-us/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/damian1000/stocks-analysis-us/actions/workflows/codeql.yml/badge.svg)](https://github.com/damian1000/stocks-analysis-us/actions/workflows/codeql.yml)
-[![codecov](https://codecov.io/gh/damian1000/stocks-analysis-us/graph/badge.svg)](https://codecov.io/gh/damian1000/stocks-analysis-us)
+[![CI](https://github.com/damianhoward/stocks-analysis-us/actions/workflows/ci.yml/badge.svg)](https://github.com/damianhoward/stocks-analysis-us/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/damianhoward/stocks-analysis-us/actions/workflows/codeql.yml/badge.svg)](https://github.com/damianhoward/stocks-analysis-us/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/damianhoward/stocks-analysis-us/graph/badge.svg)](https://codecov.io/gh/damianhoward/stocks-analysis-us)
 
 A Spring Boot 4 / Java 25 service that builds a **ranked US equity universe from public fundamentals**. It walks Zacks sector/industry classifications and Yahoo Finance fundamentals, applies a configurable PEG-style fundamental ranking, and exports the result as a desk-friendly Excel report.
 
@@ -23,7 +23,7 @@ The pipeline is structured so the signal (currently PEG) is one stage of six —
    └──────────────────┘   └───────────────────┘   └──────────────────┘
 ```
 
-Stages talk via Spring `ApplicationEvent`s — never direct method calls. Each stage package under `src/main/java/io/github/damian1000/stocks/analysis/us/` (`sectormapping`, `zacksindustry`, `zackscode`, `stocklookup`, `analysis`, `export`) owns one stage, its DTOs, its repository, and its event publisher. Adding a stage is a new package, not a rewrite.
+Stages talk via Spring `ApplicationEvent`s — never direct method calls. Each stage package under `src/main/java/com/damianhoward/stocks/analysis/us/` (`sectormapping`, `zacksindustry`, `zackscode`, `stocklookup`, `analysis`, `export`) owns one stage, its DTOs, its repository, and its event publisher. Adding a stage is a new package, not a rewrite.
 
 ## Pipeline design and test discipline
 

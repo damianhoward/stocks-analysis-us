@@ -4,7 +4,7 @@ plugins {
     id 'org.springframework.boot' version '4.1.0'
 }
 
-group = 'io.github.damian1000'
+group = 'com.damianhoward'
 version = '1.0-SNAPSHOT'
 
 // Spring Boot's BOM manages both Jackson lines and its dependency management wins over the
