@@ -1,7 +1,6 @@
 package io.github.damian1000.stocks.html;
 
 import io.github.damian1000.stocks.exception.DataRetrievalError;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
@@ -15,6 +14,8 @@ import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.sax.BodyContentHandler;
 import org.apache.tika.sax.ContentHandlerDecorator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.xml.sax.SAXException;
 
@@ -24,8 +25,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 @Component
-@Slf4j
 public class HtmlRetriever {
+
+    private static final Logger log = LoggerFactory.getLogger(HtmlRetriever.class);
 
     private static final int DEFAULT_TIMEOUT_MILLIS = 1000 * 30;
     private static final int DEFAULT_MAX_RETRIES = 10;

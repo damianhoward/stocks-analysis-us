@@ -3,17 +3,19 @@ package io.github.damian1000.stocks.fx;
 import io.github.damian1000.stocks.exception.DataRetrievalError;
 import io.github.damian1000.stocks.html.HtmlParser;
 import io.github.damian1000.stocks.html.HtmlRetriever;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
 
-@Slf4j
 @Component
 public class CurrencyConverter {
+
+    private static final Logger log = LoggerFactory.getLogger(CurrencyConverter.class);
 
     private final HtmlRetriever htmlRetriever;
     private final HtmlParser htmlParser;

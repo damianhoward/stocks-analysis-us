@@ -1,10 +1,11 @@
 package io.github.damian1000.stocks.analysis.us.export.service;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.mail.DefaultAuthenticator;
 import org.apache.commons.mail.EmailAttachment;
 import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.MultiPartEmail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,8 +13,9 @@ import java.io.File;
 import java.time.LocalDate;
 
 @Component
-@Slf4j
 public class EmailExport {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailExport.class);
 
     @Value("${stocks.analysis.us.email.enabled:false}")
     private boolean enabled;

@@ -1,14 +1,13 @@
 package io.github.damian1000.stocks.util;
 
-import lombok.experimental.UtilityClass;
-
 import java.util.UUID;
 
-@UtilityClass
-public class IdGenerator {
+/** Surrogate keys for rows the pipeline creates. */
+public final class IdGenerator {
 
-    public String generateId() {
-        UUID uuid = UUID.randomUUID();
-        return uuid.toString();
+    private IdGenerator() {}
+
+    public static String generateId() {
+        return UUID.randomUUID().toString();
     }
 }

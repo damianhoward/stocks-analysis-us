@@ -1,9 +1,10 @@
 package io.github.damian1000.stocks.analysis.us.export.service;
 
 import io.github.damian1000.stocks.analysis.us.analysis.domain.AnalysisStock;
-import lombok.extern.slf4j.Slf4j;
 import org.jxls.builder.JxlsStreaming;
 import org.jxls.transform.poi.JxlsPoi;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -17,8 +18,9 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@Slf4j
 public class ExcelExport {
+
+    private static final Logger log = LoggerFactory.getLogger(ExcelExport.class);
 
     @Value("${stocks.analysis.us.template}")
     private String excelTemplate;

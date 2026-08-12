@@ -15,7 +15,7 @@ public class PEGStockAnalyzer {
 
     public PEGStock analyzeStocks(StockLookup stockLookup) {
         if (!stockLookup.isValid()) {
-            return PEGStock.builder().category("20 Reuters Lookup Invalid").build();
+            return PEGStock.categorised("20 Reuters Lookup Invalid");
         }
 
         BigDecimal price = stockLookup.getPrice();
@@ -33,21 +33,18 @@ public class PEGStockAnalyzer {
         BigDecimal thisYearPEG = divide(thisYearEstimatePE, thisYearEPSGrowth);
         BigDecimal nextYearPEG = divide(nextYearEstimatePE, nextYearEPSGrowth);
 
-        PEGStock.PEGStockBuilder stockBuilder = PEGStock.builder();
-        stockBuilder.zacksCode(stockLookup.getZacksCode());
-        stockBuilder.thisYearEstimatePE(thisYearEstimatePE);
-        stockBuilder.nextYearEstimatePE(nextYearEstimatePE);
-        stockBuilder.thisYearEPSGrowth(thisYearEPSGrowth);
-        stockBuilder.nextYearEPSGrowth(nextYearEPSGrowth);
-        stockBuilder.thisYearPEG(thisYearPEG);
-        stockBuilder.nextYearPEG(nextYearPEG);
+        // Neither PEG computable means the inputs were missing, not that the stock scored badly.
+        String category = thisYearPEG == null && nextYearPEG == null ? "10 Missing Stats" : "00 Good";
 
-        if (thisYearPEG == null && nextYearPEG == null) {
-            stockBuilder.category("10 Missing Stats");
-        } else {
-            stockBuilder.category("00 Good");
-        }
-        return stockBuilder.build();
+        return new PEGStock(
+                stockLookup.getZacksCode(),
+                thisYearEstimatePE,
+                nextYearEstimatePE,
+                thisYearEPSGrowth,
+                nextYearEPSGrowth,
+                thisYearPEG,
+                nextYearPEG,
+                category);
     }
 
 }

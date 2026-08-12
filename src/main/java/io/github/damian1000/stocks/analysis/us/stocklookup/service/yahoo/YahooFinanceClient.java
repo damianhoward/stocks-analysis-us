@@ -1,7 +1,6 @@
 package io.github.damian1000.stocks.analysis.us.stocklookup.service.yahoo;
 
 import io.github.damian1000.stocks.exception.DataRetrievalError;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
@@ -11,6 +10,8 @@ import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -24,8 +25,9 @@ import java.nio.charset.StandardCharsets;
  * refresh-and-retry. This replaces scraping the (now removed) HTML analysis page.
  */
 @Component
-@Slf4j
 public class YahooFinanceClient {
+
+    private static final Logger log = LoggerFactory.getLogger(YahooFinanceClient.class);
 
     private static final String MODULES = "price,summaryDetail,financialData,earningsTrend,earningsHistory";
     private static final String USER_AGENT =

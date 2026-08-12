@@ -1,14 +1,15 @@
 package io.github.damian1000.stocks;
 
 import io.github.damian1000.stocks.domain.Amount;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-@Slf4j
 public class TestAssertions {
+
+    private static final Logger log = LoggerFactory.getLogger(TestAssertions.class);
 
     public void assertInRange(String fieldName, Amount expectedAmount, Amount actualAmount) {
         assertInRange(fieldName, expectedAmount.getPrice(), actualAmount.getPrice());

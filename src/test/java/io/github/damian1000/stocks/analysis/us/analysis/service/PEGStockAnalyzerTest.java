@@ -36,23 +36,23 @@ public class PEGStockAnalyzerTest {
 
         PEGStock pegStock = stockAnalyzer.analyzeStocks(stock);
 
-        assertEquals(8.26, pegStock.getThisYearEstimatePE().doubleValue(), 0.01); //  price / thisYearEPS
-        assertEquals(7.84, pegStock.getNextYearEstimatePE().doubleValue(), 0.01); //  price / nextYearEPS
+        assertEquals(8.26, pegStock.thisYearEstimatePE().doubleValue(), 0.01); //  price / thisYearEPS
+        assertEquals(7.84, pegStock.nextYearEstimatePE().doubleValue(), 0.01); //  price / nextYearEPS
 
-        assertEquals(-14.06, pegStock.getThisYearEPSGrowth().doubleValue(), 0.01); // (thisYearEPS - lastYearEPS) / thisYearEPS
-        assertEquals(5.38, pegStock.getNextYearEPSGrowth().doubleValue(), 0.01); // (thisYearEPS - thisYearEPS) / thisYearEPS
+        assertEquals(-14.06, pegStock.thisYearEPSGrowth().doubleValue(), 0.01); // (thisYearEPS - lastYearEPS) / thisYearEPS
+        assertEquals(5.38, pegStock.nextYearEPSGrowth().doubleValue(), 0.01); // (thisYearEPS - thisYearEPS) / thisYearEPS
 
-        assertEquals(-0.59, pegStock.getThisYearPEG().doubleValue(), 0.01); // thisYearPE / thisYearEPSGrowth
-        assertEquals(1.46, pegStock.getNextYearPEG().doubleValue(), 0.01); // nextYearEPS / nextYearEPSGrowth
+        assertEquals(-0.59, pegStock.thisYearPEG().doubleValue(), 0.01); // thisYearPE / thisYearEPSGrowth
+        assertEquals(1.46, pegStock.nextYearPEG().doubleValue(), 0.01); // nextYearEPS / nextYearEPSGrowth
 
-        assertEquals("00 Good", pegStock.getCategory());
+        assertEquals("00 Good", pegStock.category());
     }
 
     @Test
     public void invalidLookupShortCircuitsToCategory20() {
         StockLookup invalid = StockLookup.builder().build(); // no price/EPS
         PEGStock peg = stockAnalyzer.analyzeStocks(invalid);
-        assertEquals("20 Reuters Lookup Invalid", peg.getCategory());
+        assertEquals("20 Reuters Lookup Invalid", peg.category());
     }
 
     @Test
@@ -69,7 +69,7 @@ public class PEGStockAnalyzerTest {
                 .earningAboveEstimates("0/0")
                 .build();
         PEGStock peg = stockAnalyzer.analyzeStocks(stock);
-        assertEquals("10 Missing Stats", peg.getCategory());
+        assertEquals("10 Missing Stats", peg.category());
     }
 
     @Test
@@ -96,16 +96,16 @@ public class PEGStockAnalyzerTest {
 
         PEGStock pegStock = stockAnalyzer.analyzeStocks(stock);
 
-        assertEquals(22.57, pegStock.getThisYearEstimatePE().doubleValue(), 0.01);
-        assertEquals(19.51, pegStock.getNextYearEstimatePE().doubleValue(), 0.01);
+        assertEquals(22.57, pegStock.thisYearEstimatePE().doubleValue(), 0.01);
+        assertEquals(19.51, pegStock.nextYearEstimatePE().doubleValue(), 0.01);
 
-        assertEquals(191.74, pegStock.getThisYearEPSGrowth().doubleValue(), 0.01);
-        assertEquals(15.72, pegStock.getNextYearEPSGrowth().doubleValue(), 0.01);
+        assertEquals(191.74, pegStock.thisYearEPSGrowth().doubleValue(), 0.01);
+        assertEquals(15.72, pegStock.nextYearEPSGrowth().doubleValue(), 0.01);
 
-        assertEquals(0.12, pegStock.getThisYearPEG().doubleValue(), 0.01);
-        assertEquals(1.24, pegStock.getNextYearPEG().doubleValue(), 0.01);
+        assertEquals(0.12, pegStock.thisYearPEG().doubleValue(), 0.01);
+        assertEquals(1.24, pegStock.nextYearPEG().doubleValue(), 0.01);
 
-        assertEquals("00 Good", pegStock.getCategory());
+        assertEquals("00 Good", pegStock.category());
     }
 
 }

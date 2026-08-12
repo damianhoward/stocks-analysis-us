@@ -47,6 +47,6 @@ class StartEventResolverTest {
 
     @Test
     void resolvedEventCarriesTheRequestedDate() {
-        assertEquals(date, StartEventResolver.resolve("ExportStartEvent", date).getDate());
+        assertEquals(date, StartEventResolver.resolve("ExportStartEvent", date).date());
     }
 }

@@ -1,15 +1,15 @@
 package io.github.damian1000.stocks.analysis.us.stocklookup.service;
 
-import io.github.damian1000.stocks.analysis.us.zackscode.domain.ZacksCode;
-import io.github.damian1000.stocks.analysis.us.zackscode.repository.ZacksBasicRepository;
 import io.github.damian1000.stocks.analysis.us.stocklookup.domain.StockLookup;
 import io.github.damian1000.stocks.analysis.us.stocklookup.event.StockLookupCompleteEvent;
 import io.github.damian1000.stocks.analysis.us.stocklookup.event.StockLookupStartEvent;
 import io.github.damian1000.stocks.analysis.us.stocklookup.repository.StockLookupRepository;
 import io.github.damian1000.stocks.analysis.us.stocklookup.service.yahoo.YahooStockLookup;
+import io.github.damian1000.stocks.analysis.us.zackscode.domain.ZacksCode;
+import io.github.damian1000.stocks.analysis.us.zackscode.repository.ZacksBasicRepository;
 import io.github.damian1000.stocks.util.IdGenerator;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -24,15 +24,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
-@Slf4j
-@RequiredArgsConstructor
 public class StockLookupService {
+
+    private static final Logger log = LoggerFactory.getLogger(StockLookupService.class);
 
     private final ZacksBasicRepository zacksBasicRepository;
     private final StockLookupRepository stockLookupRepository;
@@ -48,6 +48,21 @@ public class StockLookupService {
     @Value("${stocks.analysis.us.stocklookup.concurrency:8}")
     private int lookupConcurrency;
 
+    // The collaborators only. The three @Value fields below stay field-injected exactly as
+    // @RequiredArgsConstructor left them: it included final fields and nothing else, so taking
+    // them here would move three properties from Spring's property resolution to constructor
+    // injection that has nothing to supply them.
+    public StockLookupService(
+            ZacksBasicRepository zacksBasicRepository,
+            StockLookupRepository stockLookupRepository,
+            YahooStockLookup yahooStockLookup,
+            ApplicationEventPublisher eventPublisher) {
+        this.zacksBasicRepository = zacksBasicRepository;
+        this.stockLookupRepository = stockLookupRepository;
+        this.yahooStockLookup = yahooStockLookup;
+        this.eventPublisher = eventPublisher;
+    }
+
     @EventListener
     public void onStockLookupStartEvent(StockLookupStartEvent event) {
         String zacksDateString = System.getProperty("zacksDate");
@@ -55,16 +70,16 @@ public class StockLookupService {
         if (zacksDateString != null) {
             zacksDate = LocalDate.parse(zacksDateString);
         } else {
-            zacksDate = event.getDate();
+            zacksDate = event.date();
         }
         log.info("Retrieving zacks basic for date {}", zacksDate);
 
         Set<ZacksCode> zacksCodeList = zacksBasicRepository.findByDate(zacksDate);
         log.info("Retrieved a total of zacks basic {} for date {}", zacksCodeList.size(), zacksDate);
 
-        Set<StockLookup> existingStockLookup = stockLookupRepository.findByDate(event.getDate());
+        Set<StockLookup> existingStockLookup = stockLookupRepository.findByDate(event.date());
 
-        log.info("Number of existing stock lookups {} for date {}", existingStockLookup.size(), event.getDate());
+        log.info("Number of existing stock lookups {} for date {}", existingStockLookup.size(), event.date());
 
         Map<String, StockLookup> zacksCodeMap = existingStockLookup.stream().collect(
                 Collectors.toMap(StockLookup::getZacksCode, Function.identity()));
@@ -85,7 +100,7 @@ public class StockLookupService {
         try {
             List<Callable<Void>> tasks = zacksCodeList.stream()
                     .map(c -> (Callable<Void>) () -> {
-                        lookupAndSave(c, event.getDate(), atomicInteger, count);
+                        lookupAndSave(c, event.date(), atomicInteger, count);
                         return null;
                     })
                     .collect(Collectors.toList());
@@ -99,7 +114,7 @@ public class StockLookupService {
 
         failIfAnyLookupFailed(results);
 
-        eventPublisher.publishEvent(new StockLookupCompleteEvent(event.getDate()));
+        eventPublisher.publishEvent(new StockLookupCompleteEvent(event.date()));
     }
 
     /**

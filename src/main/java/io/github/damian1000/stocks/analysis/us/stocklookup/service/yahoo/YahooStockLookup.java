@@ -1,23 +1,27 @@
 package io.github.damian1000.stocks.analysis.us.stocklookup.service.yahoo;
 
-import io.github.damian1000.stocks.exception.DataRetrievalError;
-import io.github.damian1000.stocks.analysis.us.stocklookup.domain.StockLookup;
-import io.github.damian1000.stocks.util.IdGenerator;
 import com.google.gson.Gson;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import io.github.damian1000.stocks.analysis.us.stocklookup.domain.StockLookup;
+import io.github.damian1000.stocks.exception.DataRetrievalError;
+import io.github.damian1000.stocks.util.IdGenerator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class YahooStockLookup {
 
+    private static final Logger log = LoggerFactory.getLogger(YahooStockLookup.class);
+
     private final YahooFinanceClient yahooFinanceClient;
+
+    public YahooStockLookup(YahooFinanceClient yahooFinanceClient) {
+        this.yahooFinanceClient = yahooFinanceClient;
+    }
 
     public StockLookup lookup(String zacksCode) throws DataRetrievalError {
         zacksCode = zacksCode.replaceAll("\\.", "");
@@ -30,88 +34,88 @@ public class YahooStockLookup {
         String json = yahooFinanceClient.fetchQuoteSummary(zacksCode);
         QuoteSummary quoteSummary = new Gson().fromJson(json, QuoteSummary.class);
         if (quoteSummary == null
-                || quoteSummary.getQuoteSummary() == null
-                || quoteSummary.getQuoteSummary().getResult() == null
-                || quoteSummary.getQuoteSummary().getResult().isEmpty()) {
+                || quoteSummary.quoteSummary() == null
+                || quoteSummary.quoteSummary().result() == null
+                || quoteSummary.quoteSummary().result().isEmpty()) {
             throw new DataRetrievalError(String.format(
                     "Yahoo response for %s contained no quoteSummary result — symbol may be unknown or the API changed",
                     zacksCode));
         }
         {
 
-            QuoteSummaryStore quoteSummaryStore = quoteSummary.getQuoteSummary().getResult().get(0);
+            QuoteSummaryStore quoteSummaryStore = quoteSummary.quoteSummary().result().get(0);
 
-            Price price = quoteSummaryStore.getPrice();
+            Price price = quoteSummaryStore.price();
             if (price != null) {
-                stockLookup.setCurrency(price.getCurrency());
-                Raw priceMarketCap = price.getMarketCap();
+                stockLookup.setCurrency(price.currency());
+                Raw priceMarketCap = price.marketCap();
                 if (priceMarketCap != null) {
-                    stockLookup.setMarketCap(priceMarketCap.getRaw());
+                    stockLookup.setMarketCap(priceMarketCap.raw());
                 }
-                stockLookup.setCompany(price.getLongName());
+                stockLookup.setCompany(price.longName());
             }
 
-            SummaryDetail summaryDetail = quoteSummaryStore.getSummaryDetail();
+            SummaryDetail summaryDetail = quoteSummaryStore.summaryDetail();
             if (summaryDetail != null) {
-                Raw betaSummary = summaryDetail.getBeta();
+                Raw betaSummary = summaryDetail.beta();
                 if (betaSummary != null) {
-                    stockLookup.setBeta(betaSummary.getRaw());
+                    stockLookup.setBeta(betaSummary.raw());
                 }
 
-                String currency = summaryDetail.getCurrency();
-                Raw previousClose = summaryDetail.getPreviousClose();
+                String currency = summaryDetail.currency();
+                Raw previousClose = summaryDetail.previousClose();
                 if (previousClose != null) {
-                    BigDecimal raw = previousClose.getRaw();
+                    BigDecimal raw = previousClose.raw();
                     if (currency != null && raw != null) {
                         stockLookup.setPrice(raw);
                     }
                 }
 
-                Raw trailingPE = summaryDetail.getTrailingPE();
+                Raw trailingPE = summaryDetail.trailingPE();
                 if (trailingPE != null) {
-                    stockLookup.setLastYearPE(trailingPE.getRaw());
+                    stockLookup.setLastYearPE(trailingPE.raw());
                 }
             }
 
-            FinancialData financialData = quoteSummaryStore.getFinancialData();
+            FinancialData financialData = quoteSummaryStore.financialData();
             if (financialData != null) {
-                Raw targetMeanPrice = financialData.getTargetMeanPrice();
+                Raw targetMeanPrice = financialData.targetMeanPrice();
                 if (targetMeanPrice != null) {
-                    stockLookup.setTargetPrice(targetMeanPrice.getRaw());
+                    stockLookup.setTargetPrice(targetMeanPrice.raw());
                 }
-                Raw recommendationMean = financialData.getRecommendationMean();
+                Raw recommendationMean = financialData.recommendationMean();
                 if (recommendationMean != null) {
-                    stockLookup.setRecommendationRating(recommendationMean.getRaw());
+                    stockLookup.setRecommendationRating(recommendationMean.raw());
                 }
             }
 
-            EarningsTrends earningsTrend = quoteSummaryStore.getEarningsTrend();
+            EarningsTrends earningsTrend = quoteSummaryStore.earningsTrend();
             if (earningsTrend != null) {
-                List<EarningTrend> earningsTrendList = earningsTrend.getTrend();
+                List<EarningTrend> earningsTrendList = earningsTrend.trend();
                 if (earningsTrendList != null) {
                     for (EarningTrend trend : earningsTrendList) {
                         if (trend != null) {
-                            if ("0y".equalsIgnoreCase(trend.getPeriod())) {
-                                EarningsEstimate earningsEstimate = trend.getEarningsEstimate();
+                            if ("0y".equalsIgnoreCase(trend.period())) {
+                                EarningsEstimate earningsEstimate = trend.earningsEstimate();
                                 if (earningsEstimate != null) {
-                                    Raw average = earningsEstimate.getAvg();
+                                    Raw average = earningsEstimate.avg();
                                     if (average != null) {
-                                        stockLookup.setThisYearEstimateEPS(average.getRaw());
+                                        stockLookup.setThisYearEstimateEPS(average.raw());
                                     }
 
-                                    Raw yearAgoEps = earningsEstimate.getYearAgoEps();
+                                    Raw yearAgoEps = earningsEstimate.yearAgoEps();
                                     if (yearAgoEps != null) {
-                                        stockLookup.setLastYearEPS(yearAgoEps.getRaw());
+                                        stockLookup.setLastYearEPS(yearAgoEps.raw());
                                     }
                                 }
 
                             }
-                            if ("+1y".equalsIgnoreCase(trend.getPeriod())) {
-                                EarningsEstimate earningsEstimate = trend.getEarningsEstimate();
+                            if ("+1y".equalsIgnoreCase(trend.period())) {
+                                EarningsEstimate earningsEstimate = trend.earningsEstimate();
                                 if (earningsEstimate != null) {
-                                    Raw average = earningsEstimate.getAvg();
+                                    Raw average = earningsEstimate.avg();
                                     if (average != null) {
-                                        stockLookup.setNextYearEstimateEPS(average.getRaw());
+                                        stockLookup.setNextYearEstimateEPS(average.raw());
                                     }
                                 }
                             }
@@ -121,18 +125,18 @@ public class YahooStockLookup {
 
             }
 
-            EarningsHistory earningsHistory = quoteSummaryStore.getEarningsHistory();
+            EarningsHistory earningsHistory = quoteSummaryStore.earningsHistory();
             if (earningsHistory != null) {
-                List<History> historyList = earningsHistory.getHistory();
+                List<History> historyList = earningsHistory.history();
                 if (historyList != null) {
                     int numberOfHistoryRecords = 0;
                     int aboveEstimatedEps = 0;
                     for (History history: historyList) {
                         if (history != null) {
-                            Raw epsDifference = history.getEpsDifference();
+                            Raw epsDifference = history.epsDifference();
                             if (epsDifference != null) {
                                 numberOfHistoryRecords++;
-                                BigDecimal diff = epsDifference.getRaw();
+                                BigDecimal diff = epsDifference.raw();
                                 if (diff != null && diff.compareTo(BigDecimal.ZERO) > 0) {
                                     aboveEstimatedEps++;
                                 }

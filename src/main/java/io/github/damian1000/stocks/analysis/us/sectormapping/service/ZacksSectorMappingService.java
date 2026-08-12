@@ -1,15 +1,15 @@
 package io.github.damian1000.stocks.analysis.us.sectormapping.service;
 
-import io.github.damian1000.stocks.exception.DataRetrievalError;
-import io.github.damian1000.stocks.html.HtmlRetriever;
+import com.google.gson.stream.JsonReader;
 import io.github.damian1000.stocks.analysis.us.sectormapping.domain.ZacksSectorMapping;
 import io.github.damian1000.stocks.analysis.us.sectormapping.event.ZacksSectorMappingCompleteEvent;
 import io.github.damian1000.stocks.analysis.us.sectormapping.event.ZacksSectorMappingStartEvent;
 import io.github.damian1000.stocks.analysis.us.sectormapping.repository.ZacksSectorMappingRepository;
+import io.github.damian1000.stocks.exception.DataRetrievalError;
+import io.github.damian1000.stocks.html.HtmlRetriever;
 import io.github.damian1000.stocks.util.IdGenerator;
-import com.google.gson.stream.JsonReader;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -25,20 +25,31 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
-@Slf4j
-@AllArgsConstructor
 public class ZacksSectorMappingService {
+
+    private static final Logger log = LoggerFactory.getLogger(ZacksSectorMappingService.class);
 
     private final HtmlRetriever htmlRetriever;
     private final ZacksSectorMappingRepository zacksSectorMappingRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
 
+    public ZacksSectorMappingService(
+            HtmlRetriever htmlRetriever,
+            ZacksSectorMappingRepository zacksSectorMappingRepository,
+            ApplicationEventPublisher eventPublisher,
+            TransactionTemplate transactionTemplate) {
+        this.htmlRetriever = htmlRetriever;
+        this.zacksSectorMappingRepository = zacksSectorMappingRepository;
+        this.eventPublisher = eventPublisher;
+        this.transactionTemplate = transactionTemplate;
+    }
+
     @EventListener
     public void onZacksSectorMappingStartEvent(ZacksSectorMappingStartEvent event) {
         List<ZacksSectorMapping> sectorMapping;
         try {
-            sectorMapping = downloadSectorMapping(event.getDate());
+            sectorMapping = downloadSectorMapping(event.date());
             log.info("Completed retrieving {} sector mapping from zacks", sectorMapping.size());
         } catch (DataRetrievalError dataRetrievalError) {
             log.error("An error occurred while downloading sector mapping", dataRetrievalError);
@@ -48,12 +59,12 @@ public class ZacksSectorMappingService {
         // Swap atomically only after a successful download: a failed download
         // never reaches the delete, and a failed save rolls the delete back.
         transactionTemplate.executeWithoutResult(status -> {
-            log.info("Zacks Sector Mapping deleteByDate {}", event.getDate());
-            zacksSectorMappingRepository.deleteByDate(event.getDate());
+            log.info("Zacks Sector Mapping deleteByDate {}", event.date());
+            zacksSectorMappingRepository.deleteByDate(event.date());
             zacksSectorMappingRepository.saveAll(sectorMapping);
         });
 
-        eventPublisher.publishEvent(new ZacksSectorMappingCompleteEvent(event.getDate()));
+        eventPublisher.publishEvent(new ZacksSectorMappingCompleteEvent(event.date()));
     }
 
     private List<ZacksSectorMapping> downloadSectorMapping(LocalDate date) throws DataRetrievalError {

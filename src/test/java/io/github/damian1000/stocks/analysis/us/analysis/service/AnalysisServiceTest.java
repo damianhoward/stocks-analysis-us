@@ -90,13 +90,15 @@ class AnalysisServiceTest {
         mapping.setMediumIndustryGroup("Apps");
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of(mapping));
 
-        when(pegStockAnalyzer.analyzeStocks(lookup)).thenReturn(PEGStock.builder()
-                .zacksCode("ZC1")
-                .thisYearEstimatePE(BigDecimal.valueOf(25)).nextYearEstimatePE(BigDecimal.valueOf(16.67))
-                .thisYearEPSGrowth(BigDecimal.valueOf(50)).nextYearEPSGrowth(BigDecimal.valueOf(33.33))
-                .thisYearPEG(BigDecimal.valueOf(0.5)).nextYearPEG(BigDecimal.valueOf(0.5))
-                .category("00 Good")
-                .build());
+        when(pegStockAnalyzer.analyzeStocks(lookup)).thenReturn(new PEGStock(
+                "ZC1",
+                BigDecimal.valueOf(25),
+                BigDecimal.valueOf(16.67),
+                BigDecimal.valueOf(50),
+                BigDecimal.valueOf(33.33),
+                BigDecimal.valueOf(0.5),
+                BigDecimal.valueOf(0.5),
+                "00 Good"));
 
         service.onAnalysisServiceEvent(new AnalysisStockStartEvent(date));
 
@@ -122,8 +124,7 @@ class AnalysisServiceTest {
         when(stockLookupRepository.findByDate(date)).thenReturn(Set.of(lookup));
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of()); // no zacks
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
-        when(pegStockAnalyzer.analyzeStocks(lookup)).thenReturn(PEGStock.builder()
-                .category("20 Reuters Lookup Invalid").build());
+        when(pegStockAnalyzer.analyzeStocks(lookup)).thenReturn(PEGStock.categorised("20 Reuters Lookup Invalid"));
 
         service.onAnalysisServiceEvent(new AnalysisStockStartEvent(date));
 
@@ -165,7 +166,7 @@ class AnalysisServiceTest {
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of());
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
         when(currencyConverter.convert("GBP", "USD")).thenReturn(1.25);
-        when(pegStockAnalyzer.analyzeStocks(any())).thenReturn(PEGStock.builder().category("00 Good").build());
+        when(pegStockAnalyzer.analyzeStocks(any())).thenReturn(PEGStock.categorised("00 Good"));
 
         service.onAnalysisServiceEvent(new AnalysisStockStartEvent(date));
 
@@ -188,7 +189,7 @@ class AnalysisServiceTest {
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of());
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
         when(currencyConverter.convert("EUR", "USD")).thenReturn(0.0); // no rate
-        when(pegStockAnalyzer.analyzeStocks(any())).thenReturn(PEGStock.builder().category("00 Good").build());
+        when(pegStockAnalyzer.analyzeStocks(any())).thenReturn(PEGStock.categorised("00 Good"));
 
         service.onAnalysisServiceEvent(new AnalysisStockStartEvent(date));
 
@@ -209,7 +210,7 @@ class AnalysisServiceTest {
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of());
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
         when(currencyConverter.convert("JPY", "USD")).thenThrow(new DataRetrievalError("broker down"));
-        when(pegStockAnalyzer.analyzeStocks(any())).thenReturn(PEGStock.builder().category("00 Good").build());
+        when(pegStockAnalyzer.analyzeStocks(any())).thenReturn(PEGStock.categorised("00 Good"));
 
         service.onAnalysisServiceEvent(new AnalysisStockStartEvent(date));
 

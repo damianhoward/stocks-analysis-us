@@ -1,25 +1,26 @@
 package io.github.damian1000.stocks.analysis.us.analysis.service;
 
-import io.github.damian1000.stocks.analysis.us.sectormapping.domain.ZacksSectorMapping;
-import io.github.damian1000.stocks.analysis.us.sectormapping.repository.ZacksSectorMappingRepository;
-import io.github.damian1000.stocks.analysis.us.zackscode.domain.ZacksCode;
-import io.github.damian1000.stocks.analysis.us.zackscode.repository.ZacksBasicRepository;
-import io.github.damian1000.stocks.analysis.us.stocklookup.domain.StockLookup;
-import io.github.damian1000.stocks.analysis.us.stocklookup.repository.StockLookupRepository;
 import io.github.damian1000.stocks.analysis.us.analysis.domain.AnalysisStock;
 import io.github.damian1000.stocks.analysis.us.analysis.domain.PEGStock;
 import io.github.damian1000.stocks.analysis.us.analysis.event.AnalysisStockCompleteEvent;
 import io.github.damian1000.stocks.analysis.us.analysis.event.AnalysisStockStartEvent;
 import io.github.damian1000.stocks.analysis.us.analysis.repository.AnalysisRepository;
+import io.github.damian1000.stocks.analysis.us.sectormapping.domain.ZacksSectorMapping;
+import io.github.damian1000.stocks.analysis.us.sectormapping.repository.ZacksSectorMappingRepository;
+import io.github.damian1000.stocks.analysis.us.stocklookup.domain.StockLookup;
+import io.github.damian1000.stocks.analysis.us.stocklookup.repository.StockLookupRepository;
+import io.github.damian1000.stocks.analysis.us.zackscode.domain.ZacksCode;
+import io.github.damian1000.stocks.analysis.us.zackscode.repository.ZacksBasicRepository;
 import io.github.damian1000.stocks.exception.DataRetrievalError;
 import io.github.damian1000.stocks.fx.CurrencyConverter;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import static io.github.damian1000.stocks.util.Decimals.format;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,12 +30,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static io.github.damian1000.stocks.util.Decimals.format;
-
-@AllArgsConstructor
 @Component
-@Slf4j
 public class AnalysisService {
+
+    private static final Logger log = LoggerFactory.getLogger(AnalysisService.class);
 
     private final StockLookupRepository stockLookupRepository;
     private final AnalysisRepository analysisRepository;
@@ -44,22 +43,39 @@ public class AnalysisService {
     private final ApplicationEventPublisher eventPublisher;
     private final CurrencyConverter currencyConverter;
 
+    public AnalysisService(
+            StockLookupRepository stockLookupRepository,
+            AnalysisRepository analysisRepository,
+            ZacksBasicRepository zacksBasicRepository,
+            ZacksSectorMappingRepository zacksSectorMappingRepository,
+            PEGStockAnalyzer stockAnalyzer,
+            ApplicationEventPublisher eventPublisher,
+            CurrencyConverter currencyConverter) {
+        this.stockLookupRepository = stockLookupRepository;
+        this.analysisRepository = analysisRepository;
+        this.zacksBasicRepository = zacksBasicRepository;
+        this.zacksSectorMappingRepository = zacksSectorMappingRepository;
+        this.stockAnalyzer = stockAnalyzer;
+        this.eventPublisher = eventPublisher;
+        this.currencyConverter = currencyConverter;
+    }
+
     @EventListener
     @Transactional
     public void onAnalysisServiceEvent(AnalysisStockStartEvent event) {
-        log.info("Retrieving stock lookup for date {}", event.getDate());
-        Set<StockLookup> stockLookupList = stockLookupRepository.findByDate(event.getDate());
-        log.info("Retrieved a total of stock lookup {} for date {}", stockLookupList.size(), event.getDate());
+        log.info("Retrieving stock lookup for date {}", event.date());
+        Set<StockLookup> stockLookupList = stockLookupRepository.findByDate(event.date());
+        log.info("Retrieved a total of stock lookup {} for date {}", stockLookupList.size(), event.date());
 
-        log.info("Deleting analysis for date {}", event.getDate());
-        analysisRepository.deleteByDate(event.getDate());
+        log.info("Deleting analysis for date {}", event.date());
+        analysisRepository.deleteByDate(event.date());
 
         String zacksDateString = System.getProperty("zacksDate");
         LocalDate zacksDate;
         if (zacksDateString != null) {
             zacksDate = LocalDate.parse(zacksDateString);
         } else {
-            zacksDate = event.getDate();
+            zacksDate = event.date();
         }
         log.info("Retrieving zacks basic for date {}", zacksDate);
 
@@ -76,7 +92,7 @@ public class AnalysisService {
             // Normalise to USD at the analysis boundary; every field read below is then in USD.
             StockLookup stockLookup = toUsd(rawLookup);
             AnalysisStock.AnalysisStockBuilder analysisStockBuilder = AnalysisStock.builder();
-            analysisStockBuilder.date(event.getDate());
+            analysisStockBuilder.date(event.date());
             analysisStockBuilder.zacksCode(stockLookup.getZacksCode());
             analysisStockBuilder.company(stockLookup.getCompany());
             analysisStockBuilder.currency(stockLookup.getCurrency());
@@ -111,13 +127,13 @@ public class AnalysisService {
 
             PEGStock pegStock = stockAnalyzer.analyzeStocks(stockLookup);
 
-            analysisStockBuilder.thisYearEstimatePE(format(pegStock.getThisYearEstimatePE()));
-            analysisStockBuilder.nextYearEstimatePE(format(pegStock.getNextYearEstimatePE()));
-            analysisStockBuilder.thisYearEPSGrowth(format(pegStock.getThisYearEPSGrowth()));
-            analysisStockBuilder.nextYearEPSGrowth(format(pegStock.getNextYearEPSGrowth()));
-            analysisStockBuilder.thisYearPEG(format(pegStock.getThisYearPEG()));
-            analysisStockBuilder.nextYearPEG(format(pegStock.getNextYearPEG()));
-            analysisStockBuilder.category(pegStock.getCategory());
+            analysisStockBuilder.thisYearEstimatePE(format(pegStock.thisYearEstimatePE()));
+            analysisStockBuilder.nextYearEstimatePE(format(pegStock.nextYearEstimatePE()));
+            analysisStockBuilder.thisYearEPSGrowth(format(pegStock.thisYearEPSGrowth()));
+            analysisStockBuilder.nextYearEPSGrowth(format(pegStock.nextYearEPSGrowth()));
+            analysisStockBuilder.thisYearPEG(format(pegStock.thisYearPEG()));
+            analysisStockBuilder.nextYearPEG(format(pegStock.nextYearPEG()));
+            analysisStockBuilder.category(pegStock.category());
 
             return analysisStockBuilder.build();
         }).collect(Collectors.toList());
@@ -126,7 +142,7 @@ public class AnalysisService {
         analysisRepository.saveAll(analysisStocks);
         log.info("Complete persisting {} number of analysis stock", analysisStocks.size());
 
-        eventPublisher.publishEvent(new AnalysisStockCompleteEvent(event.getDate()));
+        eventPublisher.publishEvent(new AnalysisStockCompleteEvent(event.date()));
     }
 
     /** Normalises a scraped lookup to USD so every downstream stage (calc + export) works in one currency. */

@@ -12,6 +12,14 @@ import java.math.MathContext;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * A price with its currency, normalised to an ISO code on construction.
+ *
+ * <p>Lombok stays here for the same reason it stays on the entities: {@code @Embeddable} is
+ * persisted by Hibernate, which builds an instance through a no-arg constructor and populates it
+ * by field. That rules out a record, so this keeps generated accessors rather than thirty lines of
+ * hand-written ones.
+ */
 @Data
 @ToString
 @EqualsAndHashCode

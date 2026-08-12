@@ -106,7 +106,8 @@ auto-skipped when Docker isn't reachable, so CI without Docker still passes.
 - Flyway 12.x, PostgreSQL 17 via Docker
 - Apache POI + JXLS (Excel export)
 - Apache Tika (HTML parsing)
-- Lombok, Slf4j
+- Slf4j; Lombok on the JPA-mapped types only (Hibernate needs a no-arg constructor and field
+  population, so those cannot be records)
 - JUnit Jupiter 6 + Mockito + Hamcrest + Testcontainers (PostgreSQL)
 - Gradle 9.6
 

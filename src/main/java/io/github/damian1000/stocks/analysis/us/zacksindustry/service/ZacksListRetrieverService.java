@@ -1,16 +1,16 @@
 package io.github.damian1000.stocks.analysis.us.zacksindustry.service;
 
-import io.github.damian1000.stocks.exception.DataRetrievalError;
-import io.github.damian1000.stocks.html.HtmlRetriever;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import io.github.damian1000.stocks.analysis.us.zacksindustry.domain.ZacksList;
 import io.github.damian1000.stocks.analysis.us.zacksindustry.event.ZacksListCompleteEvent;
 import io.github.damian1000.stocks.analysis.us.zacksindustry.event.ZacksListStartEvent;
 import io.github.damian1000.stocks.analysis.us.zacksindustry.repository.ZacksListRepository;
+import io.github.damian1000.stocks.exception.DataRetrievalError;
+import io.github.damian1000.stocks.html.HtmlRetriever;
 import io.github.damian1000.stocks.util.IdGenerator;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonToken;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -23,15 +23,26 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-@AllArgsConstructor
 @Component
-@Slf4j
 public class ZacksListRetrieverService {
+
+    private static final Logger log = LoggerFactory.getLogger(ZacksListRetrieverService.class);
 
     private final HtmlRetriever htmlRetriever;
     private final ZacksListRepository repository;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
+
+    public ZacksListRetrieverService(
+            HtmlRetriever htmlRetriever,
+            ZacksListRepository repository,
+            ApplicationEventPublisher eventPublisher,
+            TransactionTemplate transactionTemplate) {
+        this.htmlRetriever = htmlRetriever;
+        this.repository = repository;
+        this.eventPublisher = eventPublisher;
+        this.transactionTemplate = transactionTemplate;
+    }
 
     @EventListener
     public void onZacksListStartEvent(ZacksListStartEvent event) {
@@ -39,7 +50,7 @@ public class ZacksListRetrieverService {
         List<ZacksList> industries;
         try {
             log.info("Zacks Industry retrieveIndustries");
-            industries = retrieveIndustries(event.getDate());
+            industries = retrieveIndustries(event.date());
             log.info("Zacks Industry retrieveIndustries complete");
         } catch (DataRetrievalError dataRetrievalError) {
             log.error("An error occurred while retrieving Zacks industries", dataRetrievalError);
@@ -48,12 +59,12 @@ public class ZacksListRetrieverService {
         // Swap atomically only after a successful fetch: a failed retrieval above
         // never reaches the delete, and a failed save rolls the delete back.
         transactionTemplate.executeWithoutResult(status -> {
-            log.info("Zacks Industry deleteByDate {}", event.getDate());
-            repository.deleteByDate(event.getDate());
+            log.info("Zacks Industry deleteByDate {}", event.date());
+            repository.deleteByDate(event.date());
             repository.saveAll(industries);
         });
         log.info("Completed Persisting Zacks Industry data");
-        eventPublisher.publishEvent(new ZacksListCompleteEvent(event.getDate()));
+        eventPublisher.publishEvent(new ZacksListCompleteEvent(event.date()));
     }
 
     private List<ZacksList> retrieveIndustries(LocalDate date) throws DataRetrievalError {

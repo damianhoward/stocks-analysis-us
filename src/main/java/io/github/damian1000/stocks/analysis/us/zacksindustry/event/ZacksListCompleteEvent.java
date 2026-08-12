@@ -1,15 +1,7 @@
 package io.github.damian1000.stocks.analysis.us.zacksindustry.event;
 
 import io.github.damian1000.stocks.event.Event;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.ToString;
-
 import java.time.LocalDate;
 
-@AllArgsConstructor
-@Getter
-@ToString
-public class ZacksListCompleteEvent implements Event {
-    private LocalDate date;
-}
+/** Pipeline stage boundary for the run keyed on {@code date}. */
+public record ZacksListCompleteEvent(LocalDate date) implements Event {}
