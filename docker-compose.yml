@@ -10,7 +10,12 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # /var/lib/postgresql, not /var/lib/postgresql/data. The 18+ images keep the cluster in a
+      # version-named subdirectory and refuse to start against the pre-18 layout, so an empty
+      # volume mounted at the old path fails the same way an un-upgraded one does — the entrypoint
+      # cannot tell "wrong layout" from "database left behind by an older image". A single mount
+      # here is also what lets pg_upgrade --link work later without crossing a mount boundary.
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d trading"]
       interval: 5s
