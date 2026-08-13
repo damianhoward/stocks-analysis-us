@@ -1,0 +1,13 @@
+# Deprecation and removal warnings this build is known to emit, checked by the shared CI's
+# deprecation-baseline action. A warning not listed here fails the build.
+#
+# Fix a warning rather than adding to this file wherever the code is ours. Everything below comes
+# from a dependency, so the only ways out are the dependency moving or us dropping it.
+#
+# Apache POI, reached through the Excel export. CleanerUtil calls sun.misc.Unsafe::invokeCleaner
+# to release a mapped buffer, which is terminally deprecated and stated to be removed. When it
+# goes, POI's version at that time is what decides whether this repository still builds — so the
+# thing to watch is POI's release notes, not this line.
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::invokeCleaner has been called by org.apache.poi.poifs.nio.CleanerUtil
+WARNING: sun.misc.Unsafe::invokeCleaner will be removed in a future release
