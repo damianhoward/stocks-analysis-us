@@ -11,3 +11,15 @@
 WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
 WARNING: sun.misc.Unsafe::invokeCleaner has been called by org.apache.poi.poifs.nio.CleanerUtil
 WARNING: sun.misc.Unsafe::invokeCleaner will be removed in a future release
+
+# JNA, reached through Testcontainers, which uses it to talk to the Docker daemon over a Unix
+# socket. It loads a native library, which is restricted access the JVM will block outright rather
+# than warn about in a future release.
+#
+# Linux only, and therefore CI only: on Windows, Testcontainers reaches the daemon over a named
+# pipe and never takes the JNA path, so a workstation run cannot reproduce these. Do not conclude
+# from a clean local build that they are stale.
+WARNING: A restricted method in java.lang.System has been called
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module
