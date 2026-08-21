@@ -16,6 +16,14 @@ version = '1.0-SNAPSHOT'
 ext['jackson-2-bom.version'] = '2.21.5'
 ext['jackson-bom.version'] = '3.1.5'
 
+// Boot 4.1.0's log4j-bom pins 2.25.4, which GHSA-qv9r-c865-cp47 covers: MapMessage JSON
+// serialisation writes non-finite floats as bare NaN and Infinity tokens, so a log record
+// carrying one emits JSON no strict parser will read. Fixed in 2.25.5. It arrives through
+// spring-boot-starter-logging as log4j-to-slf4j, so nothing here declares it and Dependabot
+// cannot raise the bump — its security job only updates direct dependencies and fails with
+// security_update_dependency_not_found. Drop this once Boot ships a BOM at 2.25.5 or above.
+ext['log4j2.version'] = '2.25.5'
+
 dependencies {
     constraints {
         // commons-email 1.6.0 still resolves the pre-Jakarta mail implementation at 1.6.7,
