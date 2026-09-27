@@ -31,15 +31,6 @@ dependencies {
         // jakarta.mail-api and angus-mail but not this coordinate, so the floor is declared
         // here. Removable once commons-email drops the com.sun.mail dependency.
         implementation 'com.sun.mail:jakarta.mail:1.6.8'
-
-        // tika-parsers-standard-package pulls jsoup 1.22.2 through its HTML parser module, and
-        // CVE-2026-71497 covers everything below 1.23.1: Cleaner can be made to emit markup
-        // through a custom raw-text element. Tika manages the coordinate, so the floor is
-        // declared here. Removable once Tika ships a release that resolves 1.23.1 itself.
-        //
-        // This one does reach a running service, unlike the same constraint in build-conventions,
-        // which only bounds a Gradle plugin's classpath.
-        implementation 'org.jsoup:jsoup:1.23.1'
     }
 
     // Spring Framework / Data
@@ -55,10 +46,6 @@ dependencies {
     // JXLS 3.x (Excel templating) — jxls-poi pulls the matching jxls core transitively
     implementation 'org.jxls:jxls-poi:3.1.0'
 
-    // Content Detection and Extraction
-    implementation 'org.apache.tika:tika-core:3.3.1'
-    implementation 'org.apache.tika:tika-parsers-standard-package:3.3.1'
-
     // Date and Time
     implementation 'joda-time:joda-time:2.14.2'
 
@@ -69,7 +56,7 @@ dependencies {
     implementation 'org.apache.httpcomponents:httpclient:4.5.14'
 
     // Apache Commons
-    implementation 'org.apache.commons:commons-email:1.6.0'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation deps.commons.lang3
     implementation 'org.apache.commons:commons-text:1.15.0'
 

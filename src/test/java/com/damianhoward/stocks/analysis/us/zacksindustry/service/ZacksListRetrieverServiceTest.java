@@ -5,7 +5,6 @@ import com.damianhoward.stocks.analysis.us.zacksindustry.event.ZacksListComplete
 import com.damianhoward.stocks.analysis.us.zacksindustry.event.ZacksListStartEvent;
 import com.damianhoward.stocks.analysis.us.zacksindustry.repository.ZacksListRepository;
 import com.damianhoward.stocks.exception.DataRetrievalError;
-import com.damianhoward.stocks.html.HtmlResponse;
 import com.damianhoward.stocks.html.HtmlRetriever;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,9 +55,7 @@ class ZacksListRetrieverServiceTest {
                 "  \"industry_name\":\"<a href='zacks.com/y'>Tech</a>\"," +
                 "  \"no_of_stocks\":\"7\"}" +
                 "],\"meta\":{\"k\":\"v\"}}";
-        HtmlResponse response = new HtmlResponse();
-        response.parsedHtml = json;
-        when(htmlRetriever.getHtml(anyString())).thenReturn(response);
+        when(htmlRetriever.getHtml(anyString())).thenReturn(json);
 
         LocalDate date = LocalDate.of(2024, 6, 1);
         service.onZacksListStartEvent(new ZacksListStartEvent(date));

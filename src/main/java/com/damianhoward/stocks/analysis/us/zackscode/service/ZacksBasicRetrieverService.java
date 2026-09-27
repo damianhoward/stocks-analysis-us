@@ -83,7 +83,7 @@ public class ZacksBasicRetrieverService {
         String index = zacksIndustry.getIndex();
         String url = "https://www.zacks.com/zrank/zacks_industry_rank_data_handler.php?i=";
         log.info("Retrieving: "+zacksIndustry);
-        String details = htmlRetriever.getHtml(url+index).parsedHtml;
+        String details = htmlRetriever.getHtml(url+index);
         String data = htmlParser.extractRow(details, "\"data\"  : [");
         data = data.replace("\\", "");
 

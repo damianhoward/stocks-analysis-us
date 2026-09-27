@@ -2,7 +2,6 @@ package com.damianhoward.stocks.fx;
 
 import com.damianhoward.stocks.exception.DataRetrievalError;
 import com.damianhoward.stocks.html.HtmlParser;
-import com.damianhoward.stocks.html.HtmlResponse;
 import com.damianhoward.stocks.html.HtmlRetriever;
 import org.junit.jupiter.api.Test;
 
@@ -20,18 +19,12 @@ class CurrencyConverterTest {
 
     private static final String PROVIDER_URL = "https://example.test/fx";
 
-    private static HtmlResponse response(String rawHtml) {
-        HtmlResponse response = new HtmlResponse();
-        response.rawHtml = rawHtml;
-        return response;
-    }
-
     @Test
     void convertsByDividingTheTwoEurLegs() throws DataRetrievalError {
         HtmlRetriever retriever = mock(HtmlRetriever.class);
-        when(retriever.getHtml(contains("quotes=GBP,USD"))).thenReturn(response(
+        when(retriever.getHtml(contains("quotes=GBP,USD"))).thenReturn(
                 "[{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"GBP\",\"rate\":0.86254},"
-                        + "{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"USD\",\"rate\":1.1392}]"));
+                        + "{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"USD\",\"rate\":1.1392}]");
 
         CurrencyConverter converter = new CurrencyConverter(retriever, new HtmlParser(), PROVIDER_URL);
 
@@ -42,8 +35,8 @@ class CurrencyConverterTest {
     @Test
     void treatsEurAsTheBaseWithRateOne() throws DataRetrievalError {
         HtmlRetriever retriever = mock(HtmlRetriever.class);
-        when(retriever.getHtml(contains("quotes=EUR,USD"))).thenReturn(response(
-                "[{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"USD\",\"rate\":1.1392}]"));
+        when(retriever.getHtml(contains("quotes=EUR,USD"))).thenReturn(
+                "[{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"USD\",\"rate\":1.1392}]");
 
         CurrencyConverter converter = new CurrencyConverter(retriever, new HtmlParser(), PROVIDER_URL);
 
@@ -53,9 +46,9 @@ class CurrencyConverterTest {
     @Test
     void cachesSoTheSamePairIsFetchedOnce() throws DataRetrievalError {
         HtmlRetriever retriever = mock(HtmlRetriever.class);
-        when(retriever.getHtml(contains("quotes=AUD,NZD"))).thenReturn(response(
+        when(retriever.getHtml(contains("quotes=AUD,NZD"))).thenReturn(
                 "[{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"AUD\",\"rate\":1.65},"
-                        + "{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"NZD\",\"rate\":2.017}]"));
+                        + "{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"NZD\",\"rate\":2.017}]");
 
         CurrencyConverter converter = new CurrencyConverter(retriever, new HtmlParser(), PROVIDER_URL);
 
@@ -69,8 +62,8 @@ class CurrencyConverterTest {
     @Test
     void returnsZeroWhenAResponseRateIsMissing() throws DataRetrievalError {
         HtmlRetriever retriever = mock(HtmlRetriever.class);
-        when(retriever.getHtml(contains("quotes=GBP,ZZZ"))).thenReturn(response(
-                "[{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"GBP\",\"rate\":0.86254}]"));
+        when(retriever.getHtml(contains("quotes=GBP,ZZZ"))).thenReturn(
+                "[{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"GBP\",\"rate\":0.86254}]");
 
         CurrencyConverter converter = new CurrencyConverter(retriever, new HtmlParser(), PROVIDER_URL);
 

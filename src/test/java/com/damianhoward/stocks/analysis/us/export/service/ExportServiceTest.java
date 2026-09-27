@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -52,11 +53,7 @@ class ExportServiceTest {
         service.onAnalysisServiceEvent(new ExportStartEvent(date));
 
         verify(excelExport).generateExcel(anyList(), eq("./2024-05-01-stock-analysis.xls"));
-        verify(emailExport).emailExport(
-                eq(date),
-                eq("2024-05-01-stock-analysis"),
-                eq("2024-05-01-stock-analysis.xls"),
-                eq("./2024-05-01-stock-analysis.xls"));
+        verify(emailExport).emailExport(date, Path.of("./2024-05-01-stock-analysis.xls"));
         verify(eventPublisher).publishEvent(any(ExportCompleteEvent.class));
     }
 
@@ -68,7 +65,7 @@ class ExportServiceTest {
         service.onAnalysisServiceEvent(new ExportStartEvent(date));
 
         verify(excelExport, never()).generateExcel(anyList(), anyString());
-        verify(emailExport, never()).emailExport(any(), anyString(), anyString(), anyString());
+        verify(emailExport, never()).emailExport(any(), any());
         verify(eventPublisher).publishEvent(any(ExportCompleteEvent.class));
     }
 }

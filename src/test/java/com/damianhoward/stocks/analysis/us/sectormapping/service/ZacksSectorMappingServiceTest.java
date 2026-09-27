@@ -5,7 +5,6 @@ import com.damianhoward.stocks.analysis.us.sectormapping.event.ZacksSectorMappin
 import com.damianhoward.stocks.analysis.us.sectormapping.event.ZacksSectorMappingStartEvent;
 import com.damianhoward.stocks.analysis.us.sectormapping.repository.ZacksSectorMappingRepository;
 import com.damianhoward.stocks.exception.DataRetrievalError;
-import com.damianhoward.stocks.html.HtmlResponse;
 import com.damianhoward.stocks.html.HtmlRetriever;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,9 +60,7 @@ class ZacksSectorMappingServiceTest {
                 " \"Expanded(X) Industry Group\":\"<span title=\\\"Retail Banks\\\">y</span>\"}" +
                 "],\"other\":\"ignored\"}";
         String body = "junk-prefix window.app_data = " + json;
-        HtmlResponse response = new HtmlResponse();
-        response.rawHtml = body;
-        when(htmlRetriever.getHtml(anyString())).thenReturn(response);
+        when(htmlRetriever.getHtml(anyString())).thenReturn(body);
 
         LocalDate date = LocalDate.of(2024, 6, 1);
         service.onZacksSectorMappingStartEvent(new ZacksSectorMappingStartEvent(date));
@@ -92,9 +89,7 @@ class ZacksSectorMappingServiceTest {
         // The body must be shorter than startWord.length() (16 chars) for the
         // early-return path; otherwise the service tries to parse junk as JSON
         // and throws.
-        HtmlResponse response = new HtmlResponse();
-        response.rawHtml = "tiny";
-        when(htmlRetriever.getHtml(anyString())).thenReturn(response);
+        when(htmlRetriever.getHtml(anyString())).thenReturn("tiny");
 
         LocalDate date = LocalDate.of(2024, 6, 1);
         service.onZacksSectorMappingStartEvent(new ZacksSectorMappingStartEvent(date));

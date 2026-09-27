@@ -42,7 +42,7 @@ public class CurrencyConverter {
         }
         // Frankfurter quotes every currency against EUR; ask for both legs and divide.
         String url = String.format("%s?quotes=%s,%s", providerUrl, from, to);
-        String json = htmlRetriever.getHtml(url).rawHtml;
+        String json = htmlRetriever.getHtml(url);
 
         double fromRate = rateAgainstEur(json, from);
         double toRate = rateAgainstEur(json, to);

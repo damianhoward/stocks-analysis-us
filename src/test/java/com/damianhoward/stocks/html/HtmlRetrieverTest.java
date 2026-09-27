@@ -62,10 +62,9 @@ class HtmlRetrieverTest {
     }
 
     @Test
-    void returnsRawAndParsedHtmlOnSuccess() throws DataRetrievalError {
-        HtmlResponse response = new HtmlRetriever(5000, 1, 0).getHtml(baseUrl + "/ok");
-        assertTrue(response.rawHtml.contains("Hello Zacks"), "raw HTML preserved");
-        assertTrue(response.parsedHtml.contains("Hello Zacks"), "Tika-extracted text present");
+    void returnsTheBodyOnSuccess() throws DataRetrievalError {
+        String body = new HtmlRetriever(5000, 1, 0).getHtml(baseUrl + "/ok");
+        assertTrue(body.contains("Hello Zacks"), "response body returned");
     }
 
     @Test
