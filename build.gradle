@@ -25,14 +25,6 @@ ext['jackson-bom.version'] = '3.1.5'
 ext['log4j2.version'] = '2.25.5'
 
 dependencies {
-    constraints {
-        // commons-email 1.6.0 still resolves the pre-Jakarta mail implementation at 1.6.7,
-        // which is open to SMTP injection (GHSA-9342-92gg-6v29). Spring Boot manages
-        // jakarta.mail-api and angus-mail but not this coordinate, so the floor is declared
-        // here. Removable once commons-email drops the com.sun.mail dependency.
-        implementation 'com.sun.mail:jakarta.mail:1.6.8'
-    }
-
     // Spring Framework / Data
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
@@ -44,7 +36,7 @@ dependencies {
     implementation 'org.apache.poi:poi:5.5.1'
 
     // JXLS 3.x (Excel templating) — jxls-poi pulls the matching jxls core transitively
-    implementation 'org.jxls:jxls-poi:3.1.0'
+    implementation 'org.jxls:jxls-poi:3.2.0'
 
     // Date and Time
     implementation 'joda-time:joda-time:2.14.2'
@@ -78,7 +70,7 @@ dependencies {
     testImplementation deps.testcontainers.junit.jupiter
     testImplementation deps.testcontainers.postgresql
     // In-process SMTP server for exercising the real email-send path end to end.
-    testImplementation 'com.icegreen:greenmail-junit5:2.1.10'
+    testImplementation 'com.icegreen:greenmail-junit5:2.1.14'
     testCompileOnly 'org.projectlombok:lombok:1.18.46'
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.46'
 }
