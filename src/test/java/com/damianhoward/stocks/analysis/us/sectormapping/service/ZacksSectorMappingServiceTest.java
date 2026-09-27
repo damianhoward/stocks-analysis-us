@@ -72,14 +72,14 @@ class ZacksSectorMappingServiceTest {
         assertEquals(2, saved.size(), "header row is dropped from saved entries");
 
         ZacksSectorMapping first = saved.get(0);
-        assertEquals("Tech", first.getSectorGroup());
-        assertEquals("Apps", first.getMediumIndustryGroup());
-        assertEquals("SaaS", first.getIndustry());
-        assertEquals(date, first.getDate());
+        assertEquals("Tech", first.sectorGroup());
+        assertEquals("Apps", first.mediumIndustryGroup());
+        assertEquals("SaaS", first.industry());
+        assertEquals(date, first.date());
 
         ZacksSectorMapping second = saved.get(1);
-        assertEquals("Finance", second.getSectorGroup());
-        assertEquals("Retail Banks", second.getIndustry());
+        assertEquals("Finance", second.sectorGroup());
+        assertEquals("Retail Banks", second.industry());
 
         verify(eventPublisher).publishEvent(any(ZacksSectorMappingCompleteEvent.class));
     }

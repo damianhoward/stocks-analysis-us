@@ -7,7 +7,6 @@ import com.damianhoward.stocks.analysis.us.sectormapping.event.ZacksSectorMappin
 import com.damianhoward.stocks.analysis.us.sectormapping.repository.ZacksSectorMappingRepository;
 import com.damianhoward.stocks.exception.DataRetrievalError;
 import com.damianhoward.stocks.html.HtmlRetriever;
-import com.damianhoward.stocks.util.IdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -89,23 +88,23 @@ public class ZacksSectorMappingService {
                         reader.beginArray();
                         while (reader.hasNext()) {
                             reader.beginObject();
-                            ZacksSectorMapping zacksSectorMapping = new ZacksSectorMapping();
-                            zacksSectorMapping.setId(IdGenerator.generateId());
-                            zacksSectorMapping.setDate(date);
-                            zacksSectorMappingList.add(zacksSectorMapping);
+                            String sectorGroup = null;
+                            String mediumIndustryGroup = null;
+                            String industry = null;
                             while (reader.hasNext()) {
                                 String dataName = reader.nextName();
                                 if (dataName.equals("Sector Group")) {
-                                    zacksSectorMapping.setSectorGroup(findText(reader.nextString()));
+                                    sectorGroup = findText(reader.nextString());
                                 } else if (dataName.equals("Medium(M) Industry Group")) {
-                                    zacksSectorMapping.setMediumIndustryGroup(findText(reader.nextString()));
+                                    mediumIndustryGroup = findText(reader.nextString());
                                 } else if (dataName.equals("Expanded(X) Industry Group")) {
-                                    zacksSectorMapping.setIndustry(findText(reader.nextString()));
+                                    industry = findText(reader.nextString());
                                 } else {
                                     reader.skipValue(); //avoid some unhandle events
                                 }
                             }
                             reader.endObject();
+                            zacksSectorMappingList.add(ZacksSectorMapping.of(date, sectorGroup, mediumIndustryGroup, industry));
                         }
                         reader.endArray();
                     } else {

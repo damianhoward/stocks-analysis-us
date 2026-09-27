@@ -8,6 +8,7 @@ import com.damianhoward.stocks.analysis.us.stocklookup.domain.StockLookup;
 import com.damianhoward.stocks.analysis.us.stocklookup.repository.StockLookupRepository;
 import com.damianhoward.stocks.analysis.us.analysis.domain.AnalysisStock;
 import com.damianhoward.stocks.analysis.us.analysis.domain.PEGStock;
+import com.damianhoward.stocks.analysis.us.analysis.domain.PegRatios;
 import com.damianhoward.stocks.analysis.us.analysis.event.AnalysisStockCompleteEvent;
 import com.damianhoward.stocks.analysis.us.analysis.event.AnalysisStockStartEvent;
 import com.damianhoward.stocks.analysis.us.analysis.repository.AnalysisRepository;
@@ -24,7 +25,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
+import static com.damianhoward.stocks.analysis.us.stocklookup.domain.QuoteBuilder.aQuote;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -69,35 +72,27 @@ class AnalysisServiceTest {
     @Test
     void joinsLookupZacksAndSectorMappingAndPersistsAnalysisStocks() {
         LocalDate date = LocalDate.of(2024, 5, 1);
-        StockLookup lookup = StockLookup.builder()
-                .id("L1").date(date).zacksCode("ZC1").company("Acme")
+        StockLookup lookup = StockLookup.quoted(date, "ZC1", aQuote().company("Acme")
                 .currency("USD").marketCap(BigDecimal.TEN).yearEnding("12")
                 .price(BigDecimal.valueOf(50)).lastYearEPS(BigDecimal.ONE)
                 .thisYearEstimateEPS(BigDecimal.valueOf(2))
-                .nextYearEstimateEPS(BigDecimal.valueOf(3))
-                .build();
+                .nextYearEstimateEPS(BigDecimal.valueOf(3)).build());
         when(stockLookupRepository.findByDate(date)).thenReturn(Set.of(lookup));
 
-        ZacksCode zacksCode = new ZacksCode();
-        zacksCode.setZacksCode("ZC1");
-        zacksCode.setCompany("Acme Zacks Co");
-        zacksCode.setIndustry("Software");
+        ZacksCode zacksCode = ZacksCode.of(date, "Software", "ZC1", "Acme Zacks Co");
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of(zacksCode));
 
-        ZacksSectorMapping mapping = new ZacksSectorMapping();
-        mapping.setIndustry("Software");
-        mapping.setSectorGroup("Tech");
-        mapping.setMediumIndustryGroup("Apps");
+        ZacksSectorMapping mapping = ZacksSectorMapping.of(date, "Tech", "Apps", "Software");
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of(mapping));
 
         when(pegStockAnalyzer.analyzeStocks(lookup)).thenReturn(new PEGStock(
-                "ZC1",
-                BigDecimal.valueOf(25),
-                BigDecimal.valueOf(16.67),
-                BigDecimal.valueOf(50),
-                BigDecimal.valueOf(33.33),
-                BigDecimal.valueOf(0.5),
-                BigDecimal.valueOf(0.5),
+                new PegRatios(
+                        BigDecimal.valueOf(25),
+                        BigDecimal.valueOf(16.67),
+                        BigDecimal.valueOf(50),
+                        BigDecimal.valueOf(33.33),
+                        BigDecimal.valueOf(0.5),
+                        BigDecimal.valueOf(0.5)),
                 "00 Good"));
 
         service.onAnalysisServiceEvent(new AnalysisStockStartEvent(date));
@@ -108,19 +103,18 @@ class AnalysisServiceTest {
         List<AnalysisStock> persisted = captor.getValue();
         assertEquals(1, persisted.size());
         AnalysisStock built = persisted.get(0);
-        assertEquals("Tech", built.getSectorGroup());
-        assertEquals("Apps", built.getMediumIndustryGroup());
-        assertEquals("Software", built.getIndustry());
-        assertEquals("Acme Zacks Co", built.getZacksCompany());
-        assertEquals("00 Good", built.getCategory());
+        assertEquals("Tech", built.sectorGroup());
+        assertEquals("Apps", built.mediumIndustryGroup());
+        assertEquals("Software", built.industry());
+        assertEquals("Acme Zacks Co", built.zacksCompany());
+        assertEquals("00 Good", built.category());
         verify(eventPublisher).publishEvent(any(AnalysisStockCompleteEvent.class));
     }
 
     @Test
     void missingZacksAndSectorMappingPersistsAStockWithoutThoseFields() {
         LocalDate date = LocalDate.of(2024, 5, 1);
-        StockLookup lookup = StockLookup.builder()
-                .id("L2").date(date).zacksCode("UNKNOWN").company("Mystery").build();
+        StockLookup lookup = StockLookup.quoted(date, "UNKNOWN", aQuote().company("Mystery").build());
         when(stockLookupRepository.findByDate(date)).thenReturn(Set.of(lookup));
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of()); // no zacks
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
@@ -132,9 +126,9 @@ class AnalysisServiceTest {
         verify(analysisRepository).saveAll(captor.capture());
         AnalysisStock built = captor.getValue().get(0);
         // No zacks/sector found -> these stay null but the row still gets saved
-        org.junit.jupiter.api.Assertions.assertNull(built.getSectorGroup());
-        org.junit.jupiter.api.Assertions.assertNull(built.getZacksCompany());
-        assertEquals("20 Reuters Lookup Invalid", built.getCategory());
+        assertNull(built.sectorGroup());
+        assertNull(built.zacksCompany());
+        assertEquals("20 Reuters Lookup Invalid", built.category());
     }
 
     @Test
@@ -156,12 +150,11 @@ class AnalysisServiceTest {
     @Test
     void normalisesForeignCurrencyValuesToUsd() throws DataRetrievalError {
         LocalDate date = LocalDate.of(2024, 5, 1);
-        StockLookup lookup = StockLookup.builder()
-                .id("L3").date(date).zacksCode("GB1").company("Britannia")
+        // targetPrice deliberately absent, which exercises the null passthrough.
+        StockLookup lookup = StockLookup.quoted(date, "GB1", aQuote().company("Britannia")
                 .currency("GBP").marketCap(BigDecimal.valueOf(100))
                 .price(BigDecimal.valueOf(40)).lastYearEPS(BigDecimal.valueOf(2))
-                .thisYearEstimateEPS(BigDecimal.valueOf(4)).nextYearEstimateEPS(BigDecimal.valueOf(5))
-                .build(); // targetPrice deliberately null -> exercises the null-passthrough
+                .thisYearEstimateEPS(BigDecimal.valueOf(4)).nextYearEstimateEPS(BigDecimal.valueOf(5)).build());
         when(stockLookupRepository.findByDate(date)).thenReturn(Set.of(lookup));
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of());
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
@@ -173,18 +166,17 @@ class AnalysisServiceTest {
         ArgumentCaptor<List<AnalysisStock>> captor = ArgumentCaptor.forClass(List.class);
         verify(analysisRepository).saveAll(captor.capture());
         AnalysisStock built = captor.getValue().get(0);
-        assertEquals("USD", built.getCurrency());
-        assertEquals(0, BigDecimal.valueOf(50).compareTo(built.getPrice()));        // 40 * 1.25
-        assertEquals(0, BigDecimal.valueOf(125).compareTo(built.getMarketCap()));   // 100 * 1.25
-        org.junit.jupiter.api.Assertions.assertNull(built.getTargetPrice());        // null stays null
+        assertEquals("USD", built.quote().currency());
+        assertEquals(0, BigDecimal.valueOf(50).compareTo(built.quote().price()));        // 40 * 1.25
+        assertEquals(0, BigDecimal.valueOf(125).compareTo(built.quote().marketCap()));   // 100 * 1.25
+        assertNull(built.quote().targetPrice());        // null stays null
     }
 
     @Test
     void retainsNativeValuesWhenNoFxRateAvailable() throws DataRetrievalError {
         LocalDate date = LocalDate.of(2024, 5, 1);
-        StockLookup lookup = StockLookup.builder()
-                .id("L4").date(date).zacksCode("EU1").company("Europa")
-                .currency("EUR").price(BigDecimal.valueOf(30)).build();
+        StockLookup lookup = StockLookup.quoted(date, "EU1", aQuote().company("Europa")
+                .currency("EUR").price(BigDecimal.valueOf(30)).build());
         when(stockLookupRepository.findByDate(date)).thenReturn(Set.of(lookup));
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of());
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
@@ -196,16 +188,15 @@ class AnalysisServiceTest {
         ArgumentCaptor<List<AnalysisStock>> captor = ArgumentCaptor.forClass(List.class);
         verify(analysisRepository).saveAll(captor.capture());
         AnalysisStock built = captor.getValue().get(0);
-        assertEquals("EUR", built.getCurrency());
-        assertEquals(0, BigDecimal.valueOf(30).compareTo(built.getPrice()));
+        assertEquals("EUR", built.quote().currency());
+        assertEquals(0, BigDecimal.valueOf(30).compareTo(built.quote().price()));
     }
 
     @Test
     void retainsNativeValuesWhenFxLookupFails() throws DataRetrievalError {
         LocalDate date = LocalDate.of(2024, 5, 1);
-        StockLookup lookup = StockLookup.builder()
-                .id("L5").date(date).zacksCode("JP1").company("Nihon")
-                .currency("JPY").price(BigDecimal.valueOf(1000)).build();
+        StockLookup lookup = StockLookup.quoted(date, "JP1", aQuote().company("Nihon")
+                .currency("JPY").price(BigDecimal.valueOf(1000)).build());
         when(stockLookupRepository.findByDate(date)).thenReturn(Set.of(lookup));
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of());
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
@@ -217,7 +208,7 @@ class AnalysisServiceTest {
         ArgumentCaptor<List<AnalysisStock>> captor = ArgumentCaptor.forClass(List.class);
         verify(analysisRepository).saveAll(captor.capture());
         AnalysisStock built = captor.getValue().get(0);
-        assertEquals("JPY", built.getCurrency());
-        assertEquals(0, BigDecimal.valueOf(1000).compareTo(built.getPrice()));
+        assertEquals("JPY", built.quote().currency());
+        assertEquals(0, BigDecimal.valueOf(1000).compareTo(built.quote().price()));
     }
 }

@@ -9,7 +9,6 @@ import com.damianhoward.stocks.analysis.us.zacksindustry.repository.ZacksListRep
 import com.damianhoward.stocks.exception.DataRetrievalError;
 import com.damianhoward.stocks.html.HtmlParser;
 import com.damianhoward.stocks.html.HtmlRetriever;
-import com.damianhoward.stocks.util.IdGenerator;
 import org.apache.commons.text.WordUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +63,7 @@ public class ZacksBasicRetrieverService {
             try {
                 zacksCodes.addAll(retrieveIndustryDetail(industry, event.date()));
             } catch (DataRetrievalError e) {
-                throw new IllegalStateException("Unable to retrieve Zacks basic details for " + industry.getIndustry(), e);
+                throw new IllegalStateException("Unable to retrieve Zacks basic details for " + industry.industry(), e);
             }
         });
 
@@ -80,7 +79,7 @@ public class ZacksBasicRetrieverService {
 
     private List<ZacksCode> retrieveIndustryDetail(ZacksList zacksIndustry, LocalDate date) throws DataRetrievalError {
         List<ZacksCode> zacksIndustryBasicList = new ArrayList<>();
-        String index = zacksIndustry.getIndex();
+        String index = zacksIndustry.index();
         String url = "https://www.zacks.com/zrank/zacks_industry_rank_data_handler.php?i=";
         log.info("Retrieving: "+zacksIndustry);
         String details = htmlRetriever.getHtml(url+index);
@@ -99,15 +98,10 @@ public class ZacksBasicRetrieverService {
         while (m.find()) {
             String company = m.group(1);
             String symbol = m.group(2);
-            ZacksCode basic = new ZacksCode();
-            basic.setDate(date);
-            basic.setId(IdGenerator.generateId());
-            basic.setIndustry(zacksIndustry.getIndustry());
-            basic.setCompany(WordUtils.capitalizeFully(company));
-            basic.setZacksCode(symbol);
-            zacksIndustryBasicList.add(basic);
+            zacksIndustryBasicList.add(
+                    ZacksCode.of(date, zacksIndustry.industry(), symbol, WordUtils.capitalizeFully(company)));
         }
-        log.info("Number of details for industry: "+zacksIndustry.getIndustry() +" is "+zacksIndustryBasicList.size());
+        log.info("Number of details for industry: "+zacksIndustry.industry() +" is "+zacksIndustryBasicList.size());
         return zacksIndustryBasicList;
     }
 

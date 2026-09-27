@@ -1,35 +1,21 @@
 package com.damianhoward.stocks.analysis.us.zackscode.domain;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.LocalDate;
 
-@Data
-@EqualsAndHashCode
-@ToString
-@Entity
-@Table(name = "zacks_code")
-public class ZacksCode {
+/** A stock Zacks lists under an industry for a run date, by its ticker and company name. */
+@Table("zacks_code")
+public record ZacksCode(
+        @Id String id,
+        @Column("industry") String industry,
+        @Column("zackscode") String zacksCode,
+        @Column("company") String company,
+        @Column("date") LocalDate date) {
 
-    @Id
-    @Column(name = "id")
-    private String id;
-
-    @Column(name = "industry")
-    private String industry;
-
-    @Column(name = "zackscode")
-    private String zacksCode;
-
-    @Column(name = "company")
-    private String company;
-
-    @Column(name = "date")
-    private LocalDate date;
+    public static ZacksCode of(LocalDate date, String industry, String zacksCode, String company) {
+        return new ZacksCode(null, industry, zacksCode, company, date);
+    }
 }

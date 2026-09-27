@@ -65,12 +65,12 @@ class ZacksListRetrieverServiceTest {
         List<ZacksList> saved = captor.getValue();
         // Sorted ascending by industry index
         assertEquals(2, saved.size());
-        assertEquals("2", saved.get(0).getIndex());
-        assertEquals("Tech", saved.get(0).getIndustry());
-        assertEquals("5", saved.get(1).getIndex());
-        assertEquals("Banking", saved.get(1).getIndustry());
-        assertEquals("42", saved.get(1).getTotal());
-        assertEquals(date, saved.get(1).getDate());
+        assertEquals("2", saved.get(0).index());
+        assertEquals("Tech", saved.get(0).industry());
+        assertEquals("5", saved.get(1).index());
+        assertEquals("Banking", saved.get(1).industry());
+        assertEquals("42", saved.get(1).total());
+        assertEquals(date, saved.get(1).date());
 
         verify(repository).deleteByDate(date);
         verify(eventPublisher).publishEvent(any(ZacksListCompleteEvent.class));

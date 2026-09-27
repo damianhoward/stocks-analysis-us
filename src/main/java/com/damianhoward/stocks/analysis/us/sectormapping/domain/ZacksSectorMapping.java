@@ -1,33 +1,22 @@
 package com.damianhoward.stocks.analysis.us.sectormapping.domain;
 
-import lombok.Data;
-import lombok.ToString;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.LocalDate;
 
-@Data
-@ToString
-@Entity
-@Table(name = "zacks_sector_mapping")
-public class ZacksSectorMapping {
+/** Where Zacks places an industry in its sector and medium-industry hierarchy, for a run date. */
+@Table("zacks_sector_mapping")
+public record ZacksSectorMapping(
+        @Id String id,
+        @Column("sectorgroup") String sectorGroup,
+        @Column("mediumindustrygroup") String mediumIndustryGroup,
+        @Column("industry") String industry,
+        @Column("date") LocalDate date) {
 
-    @Id
-    @Column(name = "id")
-    private String id;
-
-    @Column(name = "sectorgroup")
-    private String sectorGroup;
-
-    @Column(name = "mediumindustrygroup")
-    private String mediumIndustryGroup;
-
-    @Column(name = "industry")
-    private String industry;
-
-    @Column(name = "date")
-    private LocalDate date;
+    public static ZacksSectorMapping of(
+            LocalDate date, String sectorGroup, String mediumIndustryGroup, String industry) {
+        return new ZacksSectorMapping(null, sectorGroup, mediumIndustryGroup, industry, date);
+    }
 }

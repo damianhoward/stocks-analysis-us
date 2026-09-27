@@ -8,7 +8,6 @@ import com.damianhoward.stocks.analysis.us.zacksindustry.event.ZacksListStartEve
 import com.damianhoward.stocks.analysis.us.zacksindustry.repository.ZacksListRepository;
 import com.damianhoward.stocks.exception.DataRetrievalError;
 import com.damianhoward.stocks.html.HtmlRetriever;
-import com.damianhoward.stocks.util.IdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -82,10 +81,9 @@ public class ZacksListRetrieverService {
                     // read array
                     reader.beginArray();
                     while (reader.hasNext()) {
-                        ZacksList zacksIndustry = new ZacksList();
-                        zacksIndustry.setDate(date);
-                        zacksIndustry.setId(IdGenerator.generateId());
-                        zacksIndustryList.add(zacksIndustry);
+                        String index = null;
+                        String total = null;
+                        String industry = null;
                         reader.beginObject();
                         while (reader.hasNext()) {
                             String dataName = reader.nextName();
@@ -99,17 +97,18 @@ public class ZacksListRetrieverService {
                                     String value = reader.nextString();
                                     int startIndex = value.indexOf(">") + 1;
                                     int endIndex = value.indexOf("</a>");
-                                    zacksIndustry.setIndustry(value.substring(startIndex, endIndex));
+                                    industry = value.substring(startIndex, endIndex);
                                 } else if (dataName.equalsIgnoreCase("industry_id")) {
-                                    zacksIndustry.setIndex(reader.nextString());
+                                    index = reader.nextString();
                                 } else if (dataName.equalsIgnoreCase("no_of_stocks")) {
-                                    zacksIndustry.setTotal(reader.nextString());
+                                    total = reader.nextString();
                                 } else {
                                     reader.skipValue();
                                 }
                             }
                         }
                         reader.endObject();
+                        zacksIndustryList.add(ZacksList.of(date, index, total, industry));
                     }
                     reader.endArray();
                 } else {
@@ -121,7 +120,7 @@ public class ZacksListRetrieverService {
         } catch (IOException e) {
            throw new DataRetrievalError(e);
         }
-        zacksIndustryList.sort(Comparator.comparingInt(o -> Integer.valueOf(o.getIndex())));
+        zacksIndustryList.sort(Comparator.comparingInt(o -> Integer.parseInt(o.index())));
         return zacksIndustryList;
     }
 

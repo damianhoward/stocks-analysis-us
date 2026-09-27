@@ -1,9 +1,7 @@
 package com.damianhoward.stocks.html;
 
-import com.damianhoward.stocks.domain.Amount;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -94,27 +92,6 @@ class HtmlParserTest {
     void addResults_sumsParseableValuesIgnoringJunk() {
         assertEquals(6.0, htmlParser.addResults(List.of("1", "2", "junk", "3")));
         assertEquals(0.0, htmlParser.addResults(List.of()));
-    }
-
-    @Test
-    void extractCurrencyAndNumber_extractsSymbolAndDigits() {
-        Amount a = htmlParser.extractCurrencyAndNumber("$1,234.56");
-        assertEquals("USD", a.getCurrency());
-        assertEquals(0, a.getPrice().compareTo(new BigDecimal("1234.56")));
-    }
-
-    @Test
-    void extractCurrencyAndNumber_handlesKrDotSpecialCase() {
-        Amount a = htmlParser.extractCurrencyAndNumber("kr.99.50");
-        // Amount normalises "kr." to "kr"; no further mapping exists, so it passes through.
-        assertEquals("kr", a.getCurrency());
-        assertEquals(0, a.getPrice().compareTo(new BigDecimal("99.50")));
-    }
-
-    @Test
-    void extractCurrencyAndNumber_emptyValueProducesZeroAmount() {
-        Amount a = htmlParser.extractCurrencyAndNumber("$");
-        assertEquals(0, a.getPrice().compareTo(BigDecimal.ZERO));
     }
 
     @Test

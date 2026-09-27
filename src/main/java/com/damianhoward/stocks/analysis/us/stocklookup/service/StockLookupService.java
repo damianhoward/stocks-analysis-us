@@ -7,7 +7,6 @@ import com.damianhoward.stocks.analysis.us.stocklookup.repository.StockLookupRep
 import com.damianhoward.stocks.analysis.us.stocklookup.service.yahoo.YahooStockLookup;
 import com.damianhoward.stocks.analysis.us.zackscode.domain.ZacksCode;
 import com.damianhoward.stocks.analysis.us.zackscode.repository.ZacksBasicRepository;
-import com.damianhoward.stocks.util.IdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -82,9 +81,9 @@ public class StockLookupService {
         log.info("Number of existing stock lookups {} for date {}", existingStockLookup.size(), event.date());
 
         Map<String, StockLookup> zacksCodeMap = existingStockLookup.stream().collect(
-                Collectors.toMap(StockLookup::getZacksCode, Function.identity()));
+                Collectors.toMap(StockLookup::zacksCode, Function.identity()));
 
-        zacksCodeList = zacksCodeList.stream().filter(z -> !zacksCodeMap.containsKey(z.getZacksCode())).collect(
+        zacksCodeList = zacksCodeList.stream().filter(z -> !zacksCodeMap.containsKey(z.zacksCode())).collect(
                 Collectors.toSet());
 
         log.info("Number of zacks code {} after filtering out existing codes", zacksCodeList.size());
@@ -152,32 +151,12 @@ public class StockLookupService {
         try {
             int i = counter.incrementAndGet();
             log.info("{} out of {} Performing Yahoo lookup for {}", i, count, c);
-            StockLookup stockLookup = yahooStockLookup.lookup(c.getZacksCode());
-            stockLookup.setDate(date);
-            stockLookup.setId(IdGenerator.generateId());
-            stockLookup.setZacksCode(c.getZacksCode());
-            stockLookupRepository.save(stockLookup);
+            stockLookupRepository.save(StockLookup.quoted(date, c.zacksCode(), yahooStockLookup.lookup(c.zacksCode())));
         } catch (Exception e) {
-            log.error("An exception has occurred while performing Yahoo stock lookup for {}", c.getZacksCode(), e);
-            stockLookupRepository.save(errorLookup(date, c.getZacksCode(), e));
+            log.error("An exception has occurred while performing Yahoo stock lookup for {}", c.zacksCode(), e);
+            stockLookupRepository.save(StockLookup.failed(date, c.zacksCode(), e.getMessage()));
         }
         sleepBetweenLookups();
-    }
-
-    private StockLookup errorLookup(LocalDate date, String zacksCode, Exception e) {
-        StockLookup stockLookup = new StockLookup();
-        stockLookup.setDate(date);
-        stockLookup.setId(IdGenerator.generateId());
-        stockLookup.setZacksCode(zacksCode);
-        stockLookup.setErrorMessage(truncate(e.getMessage()));
-        return stockLookup;
-    }
-
-    private String truncate(String message) {
-        if (message == null) {
-            return null;
-        }
-        return message.length() > 200 ? message.substring(0, 200) : message;
     }
 
     private void sleepBetweenLookups() {

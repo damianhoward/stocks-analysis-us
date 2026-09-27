@@ -54,9 +54,7 @@ class ZacksBasicRetrieverServiceTest {
     @Test
     void extractsCompaniesPerIndustryAndPersists() throws DataRetrievalError {
         LocalDate date = LocalDate.of(2024, 6, 1);
-        ZacksList industry = new ZacksList();
-        industry.setIndex("12");
-        industry.setIndustry("Software");
+        ZacksList industry = ZacksList.of(date, "12", null, "Software");
         when(zacksListRepository.findByDate(date)).thenReturn(Set.of(industry));
 
         when(htmlRetriever.getHtml(anyString())).thenReturn("industry-html");
@@ -74,11 +72,11 @@ class ZacksBasicRetrieverServiceTest {
         verify(zacksBasicRepository).saveAll(captor.capture());
         List<ZacksCode> persisted = captor.getValue();
         assertEquals(2, persisted.size());
-        assertEquals("Acme Corp", persisted.get(0).getCompany());  // WordUtils.capitalizeFully
-        assertEquals("ACME", persisted.get(0).getZacksCode());
-        assertEquals("Software", persisted.get(0).getIndustry());
-        assertEquals(date, persisted.get(0).getDate());
-        assertEquals("Globex Inc", persisted.get(1).getCompany());
+        assertEquals("Acme Corp", persisted.get(0).company());  // WordUtils.capitalizeFully
+        assertEquals("ACME", persisted.get(0).zacksCode());
+        assertEquals("Software", persisted.get(0).industry());
+        assertEquals(date, persisted.get(0).date());
+        assertEquals("Globex Inc", persisted.get(1).company());
 
         verify(zacksBasicRepository).deleteByDate(date);
         verify(eventPublisher).publishEvent(any(ZacksBasicCompleteEvent.class));
@@ -87,9 +85,7 @@ class ZacksBasicRetrieverServiceTest {
     @Test
     void retrieverFailureForOneIndustryWrapsAsIllegalState() throws DataRetrievalError {
         LocalDate date = LocalDate.of(2024, 6, 1);
-        ZacksList industry = new ZacksList();
-        industry.setIndex("12");
-        industry.setIndustry("Software");
+        ZacksList industry = ZacksList.of(date, "12", null, "Software");
         when(zacksListRepository.findByDate(date)).thenReturn(Set.of(industry));
         when(htmlRetriever.getHtml(anyString())).thenThrow(new DataRetrievalError(new IOException("boom")));
 

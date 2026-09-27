@@ -31,7 +31,7 @@ Stages talk via Spring `ApplicationEvent`s — never direct method calls. Each s
 - **External-data discipline** — throttled HTTP and bounded retry that fails fast on a 4xx, all behind a single boundary that's mocked in tests
 - **Deterministic tests, guarded integrations** — the pipeline tests mock the HTTP boundary and run the same on every push; one live smoke test per external provider (Yahoo, Frankfurter) proves the real auth and response contracts still hold, with env-var off-switches (`YAHOO_LIVE_SKIP`, `FX_LIVE_SKIP`) for offline runs
 - **Configurable ranking stage** — the scoring rule (currently PEG) is one Spring bean. Replacing it doesn't disturb the universe-build or the export
-- **Schema-managed DB** — Flyway migrations against PostgreSQL 17; the schema is the source of truth, not the JPA entities
+- **Schema-managed DB** — Flyway migrations against PostgreSQL 18 own the schema; the pipeline reads and writes immutable records through Spring Data JDBC
 - **Externalised config** — per-profile YAML + env-var placeholders; nothing sensitive committed
 
 ## Prerequisites
@@ -101,19 +101,18 @@ Note: stages **chain forward** from whatever event you start with, so e.g. `Stoc
 ./gradlew test
 ```
 
-Unit tests are deterministic with the HTTP boundary mocked. The repository
-integration test (`AnalysisRepositoryIntegrationTest`) spins up Postgres 17
-via Testcontainers and runs the real Flyway migrations against it — so the build
+Unit tests are deterministic with the HTTP boundary mocked. The persistence
+test (`PersistenceIntegrationTest`) runs the real Flyway migrations in a PostgreSQL 18
+Testcontainer and round-trips every table, so the build
 refuses to run without a reachable Docker daemon rather than skip it and gate coverage on a
 suite that did not run. `-Pconventions.skipDockerCheck` runs the rest knowingly without it.
 
 ## Stack
 
-- Java 25, Spring Boot 4.1 (Data JPA + Flyway starter)
-- Flyway 12.x, PostgreSQL 17 via Docker
+- Java 25, Spring Boot 4.1 (Data JDBC + Flyway starters), records for every persisted type
+- Flyway 13, PostgreSQL 18 via Docker
 - Apache POI + JXLS (Excel export)
-- Slf4j; Lombok on the JPA-mapped types only (Hibernate needs a no-arg constructor and field
-  population, so those cannot be records)
+- Slf4j
 - JUnit Jupiter 6 + Mockito + Hamcrest + Testcontainers (PostgreSQL)
 - Gradle 9.7
 
