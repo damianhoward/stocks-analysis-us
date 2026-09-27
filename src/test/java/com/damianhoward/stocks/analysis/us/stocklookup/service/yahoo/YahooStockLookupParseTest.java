@@ -1,6 +1,6 @@
 package com.damianhoward.stocks.analysis.us.stocklookup.service.yahoo;
 
-import com.damianhoward.stocks.analysis.us.stocklookup.domain.StockLookup;
+import com.damianhoward.stocks.analysis.us.stocklookup.domain.Quote;
 import com.damianhoward.stocks.exception.DataRetrievalError;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,15 +8,15 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Parses Yahoo quoteSummary JSON (as returned by {@link YahooFinanceClient}) into a StockLookup.
+ * Parses Yahoo quoteSummary JSON (as returned by {@link YahooFinanceClient}) into a Quote.
  * The client is mocked so these tests cover only the mapping of the API's module structure.
  */
 class YahooStockLookupParseTest {
@@ -52,42 +52,38 @@ class YahooStockLookupParseTest {
                 "  {\"epsDifference\":{\"raw\":0.3}}]}}";
         when(yahooFinanceClient.fetchQuoteSummary(anyString())).thenReturn(envelope(store));
 
-        StockLookup result = yahooStockLookup.lookup("ACME.O");
+        Quote result = yahooStockLookup.lookup("ACME.O");
 
-        // replaceAll("\\.", "") strips the dot but keeps the suffix character.
-        assertEquals("ACMEO", result.getZacksCode());
-        assertEquals("Acme Inc", result.getCompany());
-        assertEquals(new BigDecimal("1000"), result.getMarketCap());
-        assertEquals("USD", result.getCurrency());
+        // Yahoo spells share classes without the dot Zacks uses, so the symbol is asked for without it.
+        verify(yahooFinanceClient).fetchQuoteSummary("ACMEO");
+        assertEquals("Acme Inc", result.company());
+        assertEquals(new BigDecimal("1000"), result.marketCap());
+        assertEquals("USD", result.currency());
 
-        assertEquals(new BigDecimal("100.5"), result.getPrice());
-        assertEquals(new BigDecimal("1.2"), result.getBeta());
-        assertEquals(new BigDecimal("15.7"), result.getLastYearPE());
+        assertEquals(new BigDecimal("100.5"), result.price());
+        assertEquals(new BigDecimal("1.2"), result.beta());
+        assertEquals(new BigDecimal("15.7"), result.lastYearPE());
 
-        assertEquals(new BigDecimal("120.3"), result.getTargetPrice());
-        assertEquals(new BigDecimal("2.5"), result.getRecommendationRating());
+        assertEquals(new BigDecimal("120.3"), result.targetPrice());
+        assertEquals(new BigDecimal("2.5"), result.recommendationRating());
 
-        assertEquals(new BigDecimal("5.1"), result.getThisYearEstimateEPS());
-        assertEquals(new BigDecimal("4.0"), result.getLastYearEPS());
-        assertEquals(new BigDecimal("6.2"), result.getNextYearEstimateEPS());
+        assertEquals(new BigDecimal("5.1"), result.thisYearEstimateEPS());
+        assertEquals(new BigDecimal("4.0"), result.lastYearEPS());
+        assertEquals(new BigDecimal("6.2"), result.nextYearEstimateEPS());
 
         // 2 of 3 history entries are above zero
-        assertEquals("2 out of 3 above estimated eps", result.getEarningAboveEstimates());
-
-        assertNotNull(result.getId());
-        assertNotNull(result.getDate());
+        assertEquals("2 out of 3 above estimated eps", result.earningAboveEstimates());
     }
 
     @Test
     void storeWithOnlyEmptyPriceLeavesAllFieldsNull() throws DataRetrievalError {
         when(yahooFinanceClient.fetchQuoteSummary(anyString())).thenReturn(envelope("{\"price\":{}}"));
 
-        StockLookup result = yahooStockLookup.lookup("BLNK");
+        Quote result = yahooStockLookup.lookup("BLNK");
 
-        assertEquals("BLNK", result.getZacksCode());
-        assertNull(result.getPrice());
-        assertNull(result.getBeta());
-        assertNull(result.getCompany());
+        assertNull(result.price());
+        assertNull(result.beta());
+        assertNull(result.company());
     }
 
     @Test
@@ -96,13 +92,13 @@ class YahooStockLookupParseTest {
                 "{\"price\":{},\"summaryDetail\":{},\"financialData\":{}," +
                 "\"earningsTrend\":{\"trend\":[]},\"earningsHistory\":{\"history\":[]}}"));
 
-        StockLookup result = yahooStockLookup.lookup("EMPTY");
+        Quote result = yahooStockLookup.lookup("EMPTY");
 
-        assertNull(result.getMarketCap());
-        assertNull(result.getPrice());
-        assertNull(result.getTargetPrice());
-        assertNull(result.getRecommendationRating());
-        assertEquals("0 out of 0 above estimated eps", result.getEarningAboveEstimates());
+        assertNull(result.marketCap());
+        assertNull(result.price());
+        assertNull(result.targetPrice());
+        assertNull(result.recommendationRating());
+        assertEquals("0 out of 0 above estimated eps", result.earningAboveEstimates());
     }
 
     @Test
@@ -116,14 +112,14 @@ class YahooStockLookupParseTest {
                 "  null]}," +
                 "\"earningsHistory\":{\"history\":[{\"epsDifference\":null},{\"epsDifference\":{}},null]}}"));
 
-        StockLookup result = yahooStockLookup.lookup("NULLS");
+        Quote result = yahooStockLookup.lookup("NULLS");
 
         // previousClose present but no currency -> price stays unset
-        assertNull(result.getPrice());
-        assertNull(result.getThisYearEstimateEPS());
-        assertNull(result.getNextYearEstimateEPS());
-        assertNull(result.getLastYearEPS());
-        assertEquals("0 out of 1 above estimated eps", result.getEarningAboveEstimates());
+        assertNull(result.price());
+        assertNull(result.thisYearEstimateEPS());
+        assertNull(result.nextYearEstimateEPS());
+        assertNull(result.lastYearEPS());
+        assertEquals("0 out of 1 above estimated eps", result.earningAboveEstimates());
     }
 
     @Test
@@ -152,10 +148,10 @@ class YahooStockLookupParseTest {
                 "{\"summaryDetail\":{\"currency\":\"USD\",\"previousClose\":{}},"
                         + "\"earningsTrend\":{},\"earningsHistory\":{}}"));
 
-        StockLookup result = yahooStockLookup.lookup("PARTIAL");
+        Quote result = yahooStockLookup.lookup("PARTIAL");
 
-        assertNull(result.getPrice());
-        assertNull(result.getEarningAboveEstimates());
+        assertNull(result.price());
+        assertNull(result.earningAboveEstimates());
     }
 
     @Test
@@ -163,8 +159,8 @@ class YahooStockLookupParseTest {
         when(yahooFinanceClient.fetchQuoteSummary(anyString())).thenReturn(envelope(
                 "{\"earningsTrend\":{\"trend\":[{\"period\":\"+1y\",\"earningsEstimate\":null}]}}"));
 
-        StockLookup result = yahooStockLookup.lookup("PLUS1");
+        Quote result = yahooStockLookup.lookup("PLUS1");
 
-        assertNull(result.getNextYearEstimateEPS());
+        assertNull(result.nextYearEstimateEPS());
     }
 }

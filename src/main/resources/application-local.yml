@@ -21,19 +21,6 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 30000
       leak-detection-threshold: 60000
-  jpa:
-    show-sql: false
-    properties:
-      hibernate:
-        order_inserts: true
-        generate_statistics: true
-        defaultSchema: public
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        jdbc:
-          batch_size: 500
-          lob:
-            non_contentual_creation: true
-    open-in-view: false
   flyway:
     enabled: true
 
@@ -64,10 +51,7 @@ logging:
   file:
     name: "stock-analysis-us.log"
   level:
-    org.hibernate.engine.jdbc.env.internal.LobCreatorBuilderImpl: ERROR
     org.apachehttp.wire: INFO
-    org.hibernate.metamodel.internal: ERROR
-    org.apache.commons.jexl2.JexlEngine: ERROR
 
 server:
   port: ${SERVER_PORT:9000}

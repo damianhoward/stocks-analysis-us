@@ -1,35 +1,21 @@
 package com.damianhoward.stocks.analysis.us.zacksindustry.domain;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.LocalDate;
 
-@Data
-@EqualsAndHashCode
-@ToString
-@Entity
-@Table(name = "zacks_industry")
-public class ZacksList {
+/** One Zacks industry for a run date: its Zacks index, name and how many stocks it holds. */
+@Table("zacks_industry")
+public record ZacksList(
+        @Id String id,
+        @Column("index") String index,
+        @Column("total") String total,
+        @Column("industry") String industry,
+        @Column("date") LocalDate date) {
 
-    @Id
-    @Column(name = "id")
-    private String id;
-
-    @Column(name = "index")
-    private String index;
-
-    @Column(name = "total")
-    private String total;
-
-    @Column(name = "industry")
-    private String industry;
-
-    @Column(name = "date")
-    private LocalDate date;
+    public static ZacksList of(LocalDate date, String index, String total, String industry) {
+        return new ZacksList(null, index, total, industry, date);
+    }
 }

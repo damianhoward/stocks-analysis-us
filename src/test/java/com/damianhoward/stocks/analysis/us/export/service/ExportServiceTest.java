@@ -1,6 +1,8 @@
 package com.damianhoward.stocks.analysis.us.export.service;
 
 import com.damianhoward.stocks.analysis.us.analysis.domain.AnalysisStock;
+import com.damianhoward.stocks.analysis.us.analysis.domain.PegRatios;
+import com.damianhoward.stocks.analysis.us.stocklookup.domain.Quote;
 import com.damianhoward.stocks.analysis.us.analysis.repository.AnalysisRepository;
 import com.damianhoward.stocks.analysis.us.export.event.ExportCompleteEvent;
 import com.damianhoward.stocks.analysis.us.export.event.ExportStartEvent;
@@ -8,7 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
-import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -44,8 +45,8 @@ class ExportServiceTest {
     @Test
     void writesExcelAndEmailsWhenAnalysisStocksExist() {
         LocalDate date = LocalDate.of(2024, 5, 1);
-        AnalysisStock stock = AnalysisStock.builder()
-                .category("A").nextYearPEG(BigDecimal.ONE).build();
+        AnalysisStock stock = new AnalysisStock(
+                null, date, "ZC", null, null, null, null, Quote.NONE, PegRatios.NONE, "A", null);
         Set<AnalysisStock> stocks = new LinkedHashSet<>();
         stocks.add(stock);
         when(analysisRepository.findByDate(date)).thenReturn(stocks);

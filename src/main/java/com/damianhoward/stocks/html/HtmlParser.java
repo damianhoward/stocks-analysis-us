@@ -1,10 +1,8 @@
 package com.damianhoward.stocks.html;
 
-import com.damianhoward.stocks.domain.Amount;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -114,29 +112,4 @@ public class HtmlParser {
         return resultAsDouble;
     }
 
-    public Amount extractCurrencyAndNumber(String rawPrice) {
-        StringBuilder currency = new StringBuilder();
-        StringBuilder price = new StringBuilder();
-
-        // handle kr. special case
-        if (rawPrice.startsWith("kr.")) {
-            currency.append("kr.");
-            rawPrice = rawPrice.substring(3);
-        }
-
-        for (int i = 0; i < rawPrice.length(); i++ ) {
-            char ch = rawPrice.charAt(i);
-            if (Character.isDigit(ch) || ch == '.') {
-                price.append(ch);
-            } else if (ch != ',') {
-                currency.append(ch);
-            }
-        }
-
-        if (price.toString().isEmpty() || price.toString().equals(".")) {
-            return new Amount(currency.toString(), BigDecimal.ZERO);
-        } else {
-            return new Amount(currency.toString(),  new BigDecimal(price.toString()));
-        }
-    }
 }

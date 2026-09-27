@@ -20,9 +20,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import static com.damianhoward.stocks.util.Decimals.format;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -81,62 +79,31 @@ public class AnalysisService {
 
         Set<ZacksCode> zacksCodeSet = zacksBasicRepository.findByDate(zacksDate);
         Map<String, ZacksCode> zacksBasicMap = zacksCodeSet.stream().collect(
-                Collectors.toMap(ZacksCode::getZacksCode, Function.identity()));
+                Collectors.toMap(ZacksCode::zacksCode, Function.identity()));
 
         log.info("Retrieving zacks sector mapping for date {}",zacksDate);
         List<ZacksSectorMapping> zacksSectorMappingList = zacksSectorMappingRepository.findByDate(zacksDate);
         Map<String, ZacksSectorMapping> zacksSectorMappingMap = zacksSectorMappingList.stream().collect(
-                Collectors.toMap(zacksSectorMapping -> zacksSectorMapping.getIndustry().toUpperCase(), Function.identity()));
+                Collectors.toMap(zacksSectorMapping -> zacksSectorMapping.industry().toUpperCase(), Function.identity()));
 
         List<AnalysisStock> analysisStocks = stockLookupList.stream().map(rawLookup -> {
             // Normalise to USD at the analysis boundary; every field read below is then in USD.
             StockLookup stockLookup = toUsd(rawLookup);
-            AnalysisStock.AnalysisStockBuilder analysisStockBuilder = AnalysisStock.builder();
-            analysisStockBuilder.date(event.date());
-            analysisStockBuilder.zacksCode(stockLookup.getZacksCode());
-            analysisStockBuilder.company(stockLookup.getCompany());
-            analysisStockBuilder.currency(stockLookup.getCurrency());
-            analysisStockBuilder.marketCap(stockLookup.getMarketCap());
-            analysisStockBuilder.yearEnding(stockLookup.getYearEnding());
-            analysisStockBuilder.beta(stockLookup.getBeta());
-            analysisStockBuilder.price(stockLookup.getPrice());
-            analysisStockBuilder.targetPrice(stockLookup.getTargetPrice());
-            analysisStockBuilder.lastYearEPS(stockLookup.getLastYearEPS());
-            analysisStockBuilder.lastYearPE(stockLookup.getLastYearPE());
-            analysisStockBuilder.thisYearEstimateEPS(stockLookup.getThisYearEstimateEPS());
-            analysisStockBuilder.nextYearEstimateEPS(stockLookup.getNextYearEstimateEPS());;
-            analysisStockBuilder.earningAboveEstimates(stockLookup.getEarningAboveEstimates());
-            analysisStockBuilder.recommendationRating(stockLookup.getRecommendationRating());
-            analysisStockBuilder.errorMessage(stockLookup.getErrorMessage());
 
-            ZacksCode zacksCode = zacksBasicMap.get(stockLookup.getZacksCode());
-            if (zacksCode != null) {
-                analysisStockBuilder.zacksCompany(zacksCode.getCompany());
-                String industry = zacksCode.getIndustry();
-                ZacksSectorMapping zacksSectorMapping = zacksSectorMappingMap.get(industry.toUpperCase());
-                if (zacksSectorMapping != null) {
-                    analysisStockBuilder.sectorGroup(zacksSectorMapping.getSectorGroup());
-                    analysisStockBuilder.mediumIndustryGroup(zacksSectorMapping.getMediumIndustryGroup());
-                    analysisStockBuilder.industry(zacksSectorMapping.getIndustry());
-                } else {
-                    log.error("Could not find sector mapping for "+industry);
-                }
+            ZacksCode listing = zacksBasicMap.get(stockLookup.zacksCode());
+            ZacksSectorMapping sector = null;
+            if (listing == null) {
+                log.error("Could not find basic zacks for {}", stockLookup.zacksCode());
             } else {
-                log.error("Could not find basic zacks for "+stockLookup.getZacksCode());
+                sector = zacksSectorMappingMap.get(listing.industry().toUpperCase());
+                if (sector == null) {
+                    log.error("Could not find sector mapping for {}", listing.industry());
+                }
             }
 
             PEGStock pegStock = stockAnalyzer.analyzeStocks(stockLookup);
-
-            analysisStockBuilder.thisYearEstimatePE(format(pegStock.thisYearEstimatePE()));
-            analysisStockBuilder.nextYearEstimatePE(format(pegStock.nextYearEstimatePE()));
-            analysisStockBuilder.thisYearEPSGrowth(format(pegStock.thisYearEPSGrowth()));
-            analysisStockBuilder.nextYearEPSGrowth(format(pegStock.nextYearEPSGrowth()));
-            analysisStockBuilder.thisYearPEG(format(pegStock.thisYearPEG()));
-            analysisStockBuilder.nextYearPEG(format(pegStock.nextYearPEG()));
-            analysisStockBuilder.category(pegStock.category());
-
-            return analysisStockBuilder.build();
-        }).collect(Collectors.toList());
+            return AnalysisStock.of(event.date(), stockLookup, listing, sector, pegStock);
+        }).toList();
 
         log.info("Persisting {} number of analysis stock", analysisStocks.size());
         analysisRepository.saveAll(analysisStocks);
@@ -147,20 +114,12 @@ public class AnalysisService {
 
     /** Normalises a scraped lookup to USD so every downstream stage (calc + export) works in one currency. */
     private StockLookup toUsd(StockLookup lookup) {
-        double rate = usdRate(lookup.getCurrency());
+        double rate = usdRate(lookup.quote().currency());
         if (rate <= 0.0 || rate == 1.0) {
             // Already USD, blank/unknown currency, or no rate available -> keep the native values.
             return lookup;
         }
-        return lookup.toBuilder()
-                .currency("USD")
-                .marketCap(scale(lookup.getMarketCap(), rate))
-                .price(scale(lookup.getPrice(), rate))
-                .targetPrice(scale(lookup.getTargetPrice(), rate))
-                .lastYearEPS(scale(lookup.getLastYearEPS(), rate))
-                .thisYearEstimateEPS(scale(lookup.getThisYearEstimateEPS(), rate))
-                .nextYearEstimateEPS(scale(lookup.getNextYearEstimateEPS(), rate))
-                .build();
+        return lookup.withQuote(lookup.quote().convertedTo("USD", rate));
     }
 
     private double usdRate(String currency) {
@@ -173,10 +132,6 @@ public class AnalysisService {
             log.warn("FX {} -> USD failed; retaining native values", currency, e);
             return 0.0;
         }
-    }
-
-    private static BigDecimal scale(BigDecimal value, double rate) {
-        return value == null ? null : value.multiply(BigDecimal.valueOf(rate));
     }
 
 }
