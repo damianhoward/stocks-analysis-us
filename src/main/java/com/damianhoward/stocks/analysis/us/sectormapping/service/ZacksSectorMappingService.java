@@ -72,7 +72,7 @@ public class ZacksSectorMappingService {
 
         log.info("Downloading sector mapping...");
         String url = "https://www.zacks.com/zrank/sector-industry-classification.php";
-        String industries = htmlRetriever.getHtml(url).rawHtml;
+        String industries = htmlRetriever.getHtml(url);
         log.info("Completed downloading sector mapping.");
         String startWord = "window.app_data =";
         int startIndex = industries.indexOf(startWord)+startWord.length();

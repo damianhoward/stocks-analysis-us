@@ -1,4 +1,12 @@
 spring:
+  # The SMTP relay for the optional email export. Host and credentials come from the
+  # SPRING_MAIL_HOST, SPRING_MAIL_USERNAME and SPRING_MAIL_PASSWORD environment variables; with no
+  # host, Spring Boot defines no mail sender and an enabled export refuses to run.
+  mail:
+    port: 587
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
   application:
     name: stock-analysis-us
   datasource:
@@ -47,10 +55,6 @@ stocks:
         provider-url: ${FX_PROVIDER_URL:https://api.frankfurter.dev/v2/rates}
       email:
         enabled: ${EMAIL_ENABLED:false}
-        host: ${EMAIL_HOST:}
-        port: ${EMAIL_PORT:587}
-        username: ${EMAIL_USERNAME:}
-        password: ${EMAIL_PASSWORD:}
         from: ${EMAIL_FROM:}
         from-name: ${EMAIL_FROM_NAME:}
         to: ${EMAIL_TO:}

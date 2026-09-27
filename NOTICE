@@ -3,7 +3,7 @@ Copyright 2026 Damian Howard
 
 This product includes software developed by:
 - VMware / Broadcom — Spring Framework, Spring Boot, Spring Data JPA
-- The Apache Software Foundation (https://www.apache.org/) — Apache POI, Apache Tika, HttpComponents, Commons
+- The Apache Software Foundation (https://www.apache.org/) — Apache POI, HttpComponents, Commons
 - Redgate — Flyway database migrations
 - PostgreSQL Global Development Group — PostgreSQL JDBC driver
 - JXLS contributors — JXLS Excel templating

@@ -71,7 +71,7 @@ public class ZacksListRetrieverService {
         List<ZacksList> zacksIndustryList = new ArrayList<>();
 
         String url = "https://www.zacks.com/data_handler/industry/z2_industry_data.php?p=0&t=1";
-        String industries = htmlRetriever.getHtml(url).parsedHtml;
+        String industries = htmlRetriever.getHtml(url);
         JsonReader reader = new JsonReader(new StringReader(industries));
         reader.setLenient(true);
         try {

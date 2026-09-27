@@ -8,7 +8,6 @@ import com.damianhoward.stocks.analysis.us.zackscode.event.ZacksBasicStartEvent;
 import com.damianhoward.stocks.analysis.us.zackscode.repository.ZacksBasicRepository;
 import com.damianhoward.stocks.exception.DataRetrievalError;
 import com.damianhoward.stocks.html.HtmlParser;
-import com.damianhoward.stocks.html.HtmlResponse;
 import com.damianhoward.stocks.html.HtmlRetriever;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,9 +59,7 @@ class ZacksBasicRetrieverServiceTest {
         industry.setIndustry("Software");
         when(zacksListRepository.findByDate(date)).thenReturn(Set.of(industry));
 
-        HtmlResponse response = new HtmlResponse();
-        response.parsedHtml = "industry-html";
-        when(htmlRetriever.getHtml(anyString())).thenReturn(response);
+        when(htmlRetriever.getHtml(anyString())).thenReturn("industry-html");
 
         // The service runs replace("\\", "") on the extracted row, so we keep
         // the fixture free of backslashes for clarity.

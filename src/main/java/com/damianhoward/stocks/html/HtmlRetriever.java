@@ -8,18 +8,10 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.tika.exception.TikaException;
-import org.apache.tika.metadata.Metadata;
-import org.apache.tika.parser.AutoDetectParser;
-import org.apache.tika.parser.ParseContext;
-import org.apache.tika.sax.BodyContentHandler;
-import org.apache.tika.sax.ContentHandlerDecorator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.xml.sax.SAXException;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -52,7 +44,7 @@ public class HtmlRetriever {
         connectionManager.setDefaultMaxPerRoute(50);
     }
 
-    public HtmlResponse getHtml(String url) throws DataRetrievalError {
+    public String getHtml(String url) throws DataRetrievalError {
         // Create an instance of HttpClient.
         HttpClient client = createHttpClient();
         HttpGet request = new HttpGet(url);
@@ -74,29 +66,13 @@ public class HtmlRetriever {
                     throw new IOException("Unexpected HTTP status " + statusCode + " for " + url);
                 }
 
-                byte[] body;
                 try (InputStream content = response.getEntity().getContent()) {
-                    body = content.readAllBytes();
+                    return new String(content.readAllBytes(), StandardCharsets.UTF_8);
                 }
-                String rawHtml = new String(body, StandardCharsets.UTF_8);
-
-                ContentHandlerDecorator textHandler = new BodyContentHandler(-1);
-                Metadata metadata = new Metadata();
-                AutoDetectParser parser = new AutoDetectParser();
-                ParseContext context = new ParseContext();
-                parser.parse(new ByteArrayInputStream(body), textHandler, metadata, context);
-
-                String data = textHandler.toString();
-                data = data.replace(String.valueOf((char)160), "");
-
-                HtmlResponse htmlResponse = new HtmlResponse();
-                htmlResponse.rawHtml = rawHtml;
-                htmlResponse.parsedHtml = data;
-                return htmlResponse;
             } catch (ClientHttpError e) {
                 log.error("Not retrying non-transient client error for url: " + url + " message: " + e.getMessage());
                 throw new DataRetrievalError(e);
-            } catch (IOException | TikaException | SAXException e) {
+            } catch (IOException e) {
                 if (i == retryCount) {
                     log.error("Giving up while attempting retrieve data from url: "+url +" message: "+e.getMessage(), e);
                     throw new DataRetrievalError(e);

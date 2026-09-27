@@ -10,6 +10,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -53,7 +54,7 @@ public class ExportService {
             excelExport.generateExcel(analysisStockList, fullPath);
             log.info("Completed writing {} rows to excel {}", analysisStockList.size(), fullPath);
 
-            emailExport.emailExport(event.date(), name, fileName, fullPath);
+            emailExport.emailExport(event.date(), Path.of(fullPath));
         } else {
             log.info("Not exporting to excel as analysis stock for date {} is 0", event.date());
         }

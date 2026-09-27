@@ -1,93 +1,68 @@
 package com.damianhoward.stocks.analysis.us.export.service;
 
-import org.apache.commons.mail.DefaultAuthenticator;
-import org.apache.commons.mail.EmailAttachment;
-import org.apache.commons.mail.EmailException;
-import org.apache.commons.mail.MultiPartEmail;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.mail.MailPreparationException;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
+import java.io.UnsupportedEncodingException;
+import java.nio.file.Path;
 import java.time.LocalDate;
 
 @Component
+@EnableConfigurationProperties(EmailSettings.class)
 public class EmailExport {
 
     private static final Logger log = LoggerFactory.getLogger(EmailExport.class);
 
-    @Value("${stocks.analysis.us.email.enabled:false}")
-    private boolean enabled;
+    // Spring Boot only defines a sender when spring.mail.host is configured, so its absence
+    // is how an enabled export with no SMTP relay is told apart from a working one.
+    private final ObjectProvider<JavaMailSender> mailSender;
+    private final EmailSettings settings;
 
-    @Value("${stocks.analysis.us.email.host:}")
-    private String host;
+    public EmailExport(ObjectProvider<JavaMailSender> mailSender, EmailSettings settings) {
+        this.mailSender = mailSender;
+        this.settings = settings;
+    }
 
-    @Value("${stocks.analysis.us.email.port:587}")
-    private int port;
-
-    @Value("${stocks.analysis.us.email.username:}")
-    private String username;
-
-    @Value("${stocks.analysis.us.email.password:}")
-    private String password;
-
-    @Value("${stocks.analysis.us.email.from:}")
-    private String from;
-
-    @Value("${stocks.analysis.us.email.from-name:}")
-    private String fromName;
-
-    @Value("${stocks.analysis.us.email.to:}")
-    private String to;
-
-    @Value("${stocks.analysis.us.email.to-name:}")
-    private String toName;
-
-    public void emailExport(LocalDate date, String attachmentName, String fileName, String attachmentPath) {
-        if (!enabled) {
-            log.info("Email export disabled; generated report remains at {}", attachmentPath);
+    public void emailExport(LocalDate date, Path report) {
+        if (!settings.enabled()) {
+            log.info("Email export disabled; generated report remains at {}", report);
             return;
         }
-        validateConfiguration();
-
-        try {
-            log.info("Sending email with attachment {}", attachmentPath);
-            String filePath = new File(attachmentPath).getAbsolutePath();
-
-            EmailAttachment attachment = new EmailAttachment();
-            attachment.setDescription(attachmentName);
-            attachment.setName(fileName);
-            attachment.setPath(filePath);
-            attachment.setDisposition(EmailAttachment.ATTACHMENT);
-
-            MultiPartEmail email = new MultiPartEmail();
-            email.setStartTLSEnabled(true);
-            email.setHostName(host);
-            email.setSmtpPort(port);
-            email.addTo(to, toName);
-            email.setFrom(from, fromName);
-            email.setSubject("Stock Analysis " + date);
-            email.setMsg("Stock analysis for "+date);
-            email.setAuthenticator(new DefaultAuthenticator(username, password));
-
-            email.attach(attachment);
-            email.send();
-
-            log.info("Completed sending email with attachment {}", attachmentPath);
-        } catch (EmailException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void validateConfiguration() {
-        if (isBlank(host) || isBlank(username) || isBlank(password) || isBlank(from) || isBlank(to)) {
+        JavaMailSender sender = mailSender.getIfAvailable();
+        if (sender == null || isBlank(settings.from()) || isBlank(settings.to())) {
             throw new IllegalStateException("Email export is enabled but SMTP configuration is incomplete");
         }
+
+        log.info("Sending email with attachment {}", report);
+        sender.send(compose(sender.createMimeMessage(), date, report));
+        log.info("Completed sending email with attachment {}", report);
     }
 
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
+    private MimeMessage compose(MimeMessage message, LocalDate date, Path report) {
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            helper.setFrom(settings.from(), settings.fromName());
+            helper.setTo(new InternetAddress(settings.to(), settings.toName()));
+            helper.setSubject("Stock Analysis " + date);
+            helper.setText("Stock analysis for " + date);
+            helper.addAttachment(report.getFileName().toString(), report.toFile());
+            return message;
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            throw new MailPreparationException("Could not build the export email for " + date, e);
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
 }

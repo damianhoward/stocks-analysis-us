@@ -28,7 +28,7 @@ Stages talk via Spring `ApplicationEvent`s — never direct method calls. Each s
 ## Pipeline design and test discipline
 
 - **Spring event orchestration** — stages communicate via in-process `ApplicationEvent`s (synchronous, not durable messaging — see `EventManager`), so any stage can be skipped, re-run, or replaced without touching the others
-- **External-data discipline** — throttled HTTP, retry-on-failure, Tika-based HTML parsing for Zacks pages, all behind a single boundary that's mocked in tests
+- **External-data discipline** — throttled HTTP and bounded retry that fails fast on a 4xx, all behind a single boundary that's mocked in tests
 - **Deterministic tests, guarded integrations** — the pipeline tests mock the HTTP boundary and run the same on every push; one live smoke test per external provider (Yahoo, Frankfurter) proves the real auth and response contracts still hold, with env-var off-switches (`YAHOO_LIVE_SKIP`, `FX_LIVE_SKIP`) for offline runs
 - **Configurable ranking stage** — the scoring rule (currently PEG) is one Spring bean. Replacing it doesn't disturb the universe-build or the export
 - **Schema-managed DB** — Flyway migrations against PostgreSQL 17; the schema is the source of truth, not the JPA entities
@@ -89,8 +89,8 @@ Note: stages **chain forward** from whatever event you start with, so e.g. `Stoc
 | `DB_PASSWORD`                                                   | `postgres`                                 |                                                           |
 | `FX_PROVIDER_URL`                                               | `https://api.frankfurter.dev/v2/rates`     | FX rate source (keyless; rates quoted against EUR)        |
 | `EMAIL_ENABLED`                                                 | `false`                                    | Set `true` to email the export at the end of the pipeline |
-| `EMAIL_HOST` / `EMAIL_PORT`                                     | _empty_ / `587`                            | SMTP relay (only used if enabled)                         |
-| `EMAIL_USERNAME` / `EMAIL_PASSWORD`                             | _empty_                                    | SMTP credentials (only used if enabled)                   |
+| `SPRING_MAIL_HOST` / `SPRING_MAIL_PORT`                         | _empty_ / `587`                            | SMTP relay (only used if enabled)                         |
+| `SPRING_MAIL_USERNAME` / `SPRING_MAIL_PASSWORD`                 | _empty_                                    | SMTP credentials (only used if enabled)                   |
 | `EMAIL_FROM` / `EMAIL_FROM_NAME` / `EMAIL_TO` / `EMAIL_TO_NAME` | _empty_                                    | Email addresses (only used if enabled)                    |
 | `SERVER_PORT`                                                   | `9000`                                     | HTTP port                                                 |
 | `SPRING_PROFILES_ACTIVE`                                        | `dev`                                      | Spring profile                                            |
@@ -103,19 +103,19 @@ Note: stages **chain forward** from whatever event you start with, so e.g. `Stoc
 
 Unit tests are deterministic with the HTTP boundary mocked. The repository
 integration test (`AnalysisRepositoryIntegrationTest`) spins up Postgres 17
-via Testcontainers and runs the real Flyway migrations against it — it's
-auto-skipped when Docker isn't reachable, so CI without Docker still passes.
+via Testcontainers and runs the real Flyway migrations against it — so the build
+refuses to run without a reachable Docker daemon rather than skip it and gate coverage on a
+suite that did not run. `-Pconventions.skipDockerCheck` runs the rest knowingly without it.
 
 ## Stack
 
 - Java 25, Spring Boot 4.1 (Data JPA + Flyway starter)
 - Flyway 12.x, PostgreSQL 17 via Docker
 - Apache POI + JXLS (Excel export)
-- Apache Tika (HTML parsing)
 - Slf4j; Lombok on the JPA-mapped types only (Hibernate needs a no-arg constructor and field
   population, so those cannot be records)
 - JUnit Jupiter 6 + Mockito + Hamcrest + Testcontainers (PostgreSQL)
-- Gradle 9.6
+- Gradle 9.7
 
 ## Notes
 
