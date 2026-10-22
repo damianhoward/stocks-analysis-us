@@ -1,5 +1,5 @@
 plugins {
-    id 'com.damianhoward.java-conventions' version '0.5.4'
+    id 'com.damianhoward.java-conventions' version '0.6.0'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'org.springframework.boot' version '4.1.1'
 }
@@ -35,7 +35,7 @@ dependencies {
     implementation 'org.jxls:jxls-poi:3.2.0'
 
     // Date and Time
-    implementation 'joda-time:joda-time:2.14.2'
+    implementation 'joda-time:joda-time:2.15.0'
 
     // JSON
     implementation deps.gson
@@ -55,7 +55,7 @@ dependencies {
     implementation deps.flyway.postgresql
 
     // Database Driver
-    implementation 'org.postgresql:postgresql:42.7.13'
+    implementation 'org.postgresql:postgresql:42.7.14'
 
     // Test dependencies
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
