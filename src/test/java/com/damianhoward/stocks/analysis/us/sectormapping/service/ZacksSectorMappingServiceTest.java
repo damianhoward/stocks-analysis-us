@@ -43,9 +43,8 @@ class ZacksSectorMappingServiceTest {
 
     @Test
     void parsesZacksAppDataAndPersistsAfterDroppingHeaderRow() throws DataRetrievalError {
-        // The service finds "window.app_data =", then JSON-parses everything
-        // after it. It also drops the first parsed row as a header; so we ship
-        // 3 rows and the first one is dropped.
+        // The service finds "window.app_data =" and reads the literal after it. The first row is
+        // Zacks's Index pseudo-sector and is dropped, so we ship 3 rows and expect 2.
         String json =
                 "{\"data\":[" +
                 "{\"Sector Group\":\"<span title=\\\"HDR_S\\\">.</span>\"," +
@@ -69,7 +68,7 @@ class ZacksSectorMappingServiceTest {
         ArgumentCaptor<List<ZacksSectorMapping>> captor = ArgumentCaptor.forClass(List.class);
         verify(repository).saveAll(captor.capture());
         List<ZacksSectorMapping> saved = captor.getValue();
-        assertEquals(2, saved.size(), "header row is dropped from saved entries");
+        assertEquals(2, saved.size(), "the first row is dropped from saved entries");
 
         ZacksSectorMapping first = saved.get(0);
         assertEquals("Tech", first.sectorGroup());
@@ -85,17 +84,53 @@ class ZacksSectorMappingServiceTest {
     }
 
     @Test
-    void tinyHtmlBelowMarkerLengthShortCircuitsAndStillPublishesEvent() throws DataRetrievalError {
-        // The body must be shorter than startWord.length() (16 chars) for the
-        // early-return path; otherwise the service tries to parse junk as JSON
-        // and throws.
-        when(htmlRetriever.getHtml(anyString())).thenReturn("tiny");
+    void readsTheJavaScriptLiteralZacksServesAndStopsAtItsEnd() throws DataRetrievalError {
+        // The page's app_data is a JavaScript object literal, not JSON: columns is unquoted, and
+        // the closing script tag and the rest of the page follow it.
+        String page = """
+                <html><script>window.app_data =
+                                {
+
+                \t\t\t\t    columns : [
+                                    { "mDataProp"   : "Sector Group"
+                                    , "sTitle"      : "Sector Group"
+                                    }
+                                ],
+                         "data"  : [  { "Sector Group"               :  "<span title=\\"Index\\" >Index</span>", "Medium(M) Industry Group"   :  "<span title=\\"Indices\\" >Indices</span>", "Expanded(X) Industry Group" :  "<span title=\\"Indicies\\" >Indicies</span>" } ,  { "Sector Group"               :  "<span title=\\"Consumer Staples\\" >Consumer Staple...</span>", "Medium(M) Industry Group"   :  "<span title=\\"Publishing\\" >Publishing</span>", "Expanded(X) Industry Group" :  "<span title=\\"Publishing - Newspapers\\" >Publishing - Ne...</span>" }  ]
+                                }</script>        <script defer src="https://staticx.zacks.com/js/x.js"></script>
+                <section><h1>Sector and Industry Group Classification</h1></section></html>
+                """;
+        when(htmlRetriever.getHtml(anyString())).thenReturn(page);
 
         LocalDate date = LocalDate.of(2024, 6, 1);
         service.onZacksSectorMappingStartEvent(new ZacksSectorMappingStartEvent(date));
 
-        verify(repository).deleteByDate(date);
-        verify(eventPublisher).publishEvent(any(ZacksSectorMappingCompleteEvent.class));
+        ArgumentCaptor<List<ZacksSectorMapping>> captor = ArgumentCaptor.forClass(List.class);
+        verify(repository).saveAll(captor.capture());
+        List<ZacksSectorMapping> saved = captor.getValue();
+        assertEquals(1, saved.size(), "the Index pseudo-sector is dropped");
+        // The span title carries the full name where the visible text is truncated.
+        assertEquals("Consumer Staples", saved.get(0).sectorGroup());
+        assertEquals("Publishing - Newspapers", saved.get(0).industry());
+    }
+
+    @Test
+    void aPageWithoutAppDataFailsInsteadOfWipingTheDate() throws DataRetrievalError {
+        when(htmlRetriever.getHtml(anyString())).thenReturn("<html>Zacks is down for maintenance</html>");
+
+        assertThrows(IllegalStateException.class, () -> service.onZacksSectorMappingStartEvent(
+                new ZacksSectorMappingStartEvent(LocalDate.of(2024, 6, 1))));
+        verify(repository, never()).deleteByDate(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void appDataWithNoRowsFailsInsteadOfWipingTheDate() throws DataRetrievalError {
+        when(htmlRetriever.getHtml(anyString())).thenReturn("window.app_data = { columns : [], \"data\" : [] }");
+
+        assertThrows(IllegalStateException.class, () -> service.onZacksSectorMappingStartEvent(
+                new ZacksSectorMappingStartEvent(LocalDate.of(2024, 6, 1))));
+        verify(repository, never()).deleteByDate(any());
     }
 
     @Test
@@ -107,6 +142,26 @@ class ZacksSectorMappingServiceTest {
                         new ZacksSectorMappingStartEvent(LocalDate.of(2024, 6, 1))));
         org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("Unable to download Zacks sector mapping"));
         // The download failed, so existing good data must NOT have been deleted.
+        verify(repository, never()).deleteByDate(any());
+    }
+
+    @Test
+    void aLiteralJacksonCannotReadFailsInsteadOfWipingTheDate() throws DataRetrievalError {
+        when(htmlRetriever.getHtml(anyString())).thenReturn("window.app_data = { \"data\" : [ { 'Sector Group' : x } ] }");
+
+        assertThrows(IllegalStateException.class, () -> service.onZacksSectorMappingStartEvent(
+                new ZacksSectorMappingStartEvent(LocalDate.of(2024, 6, 1))));
+        verify(repository, never()).deleteByDate(any());
+    }
+
+    @Test
+    void aRowWithoutItsSpanTitlesFailsInsteadOfStoringAStandInName() throws DataRetrievalError {
+        // Every column is required, and a made-up name would be a classification no listing matches.
+        when(htmlRetriever.getHtml(anyString())).thenReturn(
+                "window.app_data = { \"data\" : [ { \"Sector Group\" : \"Tech\", \"Medium(M) Industry Group\" : null } ] }");
+
+        assertThrows(IllegalStateException.class, () -> service.onZacksSectorMappingStartEvent(
+                new ZacksSectorMappingStartEvent(LocalDate.of(2024, 6, 1))));
         verify(repository, never()).deleteByDate(any());
     }
 }

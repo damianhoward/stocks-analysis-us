@@ -1,6 +1,5 @@
 package com.damianhoward.stocks.analysis.us.sectormapping.service;
 
-import com.google.gson.stream.JsonReader;
 import com.damianhoward.stocks.analysis.us.sectormapping.domain.ZacksSectorMapping;
 import com.damianhoward.stocks.analysis.us.sectormapping.event.ZacksSectorMappingCompleteEvent;
 import com.damianhoward.stocks.analysis.us.sectormapping.event.ZacksSectorMappingStartEvent;
@@ -13,12 +12,15 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.json.JsonReadFeature;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
-import java.io.StringReader;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,6 +29,16 @@ import java.util.regex.Pattern;
 public class ZacksSectorMappingService {
 
     private static final Logger log = LoggerFactory.getLogger(ZacksSectorMappingService.class);
+
+    private static final String APP_DATA_MARKER = "window.app_data =";
+    // app_data is a JavaScript object literal in a script tag, not JSON: its first key, columns,
+    // is unquoted, and the rest of the page follows it. Those are the two relaxations the page
+    // needs, so they are the only two enabled; Jackson 3 rejects trailing content by default.
+    private static final JsonMapper APP_DATA = JsonMapper.builder()
+            .enable(JsonReadFeature.ALLOW_UNQUOTED_PROPERTY_NAMES)
+            .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .build();
+    private static final Pattern SPAN_TITLE = Pattern.compile("<span title=\"(.*?)\"");
 
     private final HtmlRetriever htmlRetriever;
     private final ZacksSectorMappingRepository zacksSectorMappingRepository;
@@ -67,73 +79,49 @@ public class ZacksSectorMappingService {
     }
 
     private List<ZacksSectorMapping> downloadSectorMapping(LocalDate date) throws DataRetrievalError {
-        List<ZacksSectorMapping> zacksSectorMappingList = new ArrayList<>();
-
         log.info("Downloading sector mapping...");
-        String url = "https://www.zacks.com/zrank/sector-industry-classification.php";
-        String industries = htmlRetriever.getHtml(url);
+        String page = htmlRetriever.getHtml("https://www.zacks.com/zrank/sector-industry-classification.php");
         log.info("Completed downloading sector mapping.");
-        String startWord = "window.app_data =";
-        int startIndex = industries.indexOf(startWord)+startWord.length();
-        if (industries.length() > startIndex) {
-            industries = industries.substring(startIndex).trim();
-            JsonReader reader = new JsonReader(new StringReader(industries));
-            reader.setLenient(true);
-            try {
-                reader.beginObject();
-                while (reader.hasNext()) {
-                    String name = reader.nextName();
-                    if (name.equals("data")) {
-                        // read array
-                        reader.beginArray();
-                        while (reader.hasNext()) {
-                            reader.beginObject();
-                            String sectorGroup = null;
-                            String mediumIndustryGroup = null;
-                            String industry = null;
-                            while (reader.hasNext()) {
-                                String dataName = reader.nextName();
-                                if (dataName.equals("Sector Group")) {
-                                    sectorGroup = findText(reader.nextString());
-                                } else if (dataName.equals("Medium(M) Industry Group")) {
-                                    mediumIndustryGroup = findText(reader.nextString());
-                                } else if (dataName.equals("Expanded(X) Industry Group")) {
-                                    industry = findText(reader.nextString());
-                                } else {
-                                    reader.skipValue(); //avoid some unhandle events
-                                }
-                            }
-                            reader.endObject();
-                            zacksSectorMappingList.add(ZacksSectorMapping.of(date, sectorGroup, mediumIndustryGroup, industry));
-                        }
-                        reader.endArray();
-                    } else {
-                        reader.skipValue(); //avoid some unhandle events
-                    }
-                }
-                reader.endObject();
-                reader.close();
-            } catch (IOException e) {
-                throw new DataRetrievalError(e);
-            }
 
-            // remove the header
-            zacksSectorMappingList = zacksSectorMappingList.subList(1, zacksSectorMappingList.size());
-
-            return zacksSectorMappingList;
+        // Without the marker the page has changed shape. Treating that as an empty mapping would
+        // delete the date's rows and announce the stage complete.
+        int marker = page.indexOf(APP_DATA_MARKER);
+        if (marker < 0) {
+            throw new DataRetrievalError("Zacks sector page has no " + APP_DATA_MARKER + "; its layout has changed");
         }
-        return Collections.emptyList();
+        JsonNode appData;
+        try (JsonParser parser = APP_DATA.createParser(page.substring(marker + APP_DATA_MARKER.length()))) {
+            appData = APP_DATA.readTree(parser);
+        } catch (JacksonException e) {
+            throw new DataRetrievalError(e);
+        }
+
+        List<ZacksSectorMapping> mapping = new ArrayList<>();
+        for (JsonNode row : appData.path("data")) {
+            mapping.add(ZacksSectorMapping.of(date,
+                    spanTitle(row, "Sector Group"),
+                    spanTitle(row, "Medium(M) Industry Group"),
+                    spanTitle(row, "Expanded(X) Industry Group")));
+        }
+        if (mapping.isEmpty()) {
+            throw new DataRetrievalError("Zacks sector page's app_data has no data rows; its layout has changed");
+        }
+        // The first row is Zacks's "Index" pseudo-sector, which classifies indices rather than
+        // companies, so it is not part of the mapping.
+        return mapping.subList(1, mapping.size());
     }
 
-    private String findText(String rawText) {
-        // https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
-        // http://stackoverflow.com/questions/16331423/whats-the-java-regular-expression-for-an-only-integer-numbers-string
-        String pattern = "<span title=\"(.*?)\"";
-        Pattern r = Pattern.compile(pattern);
-        Matcher m = r.matcher(rawText);
-        if (m.find()) {
-            return m.group(1);
+    /**
+     * Each cell is an HTML fragment whose span title carries the full, untruncated name. A cell
+     * without one means the page has changed: the columns are required, and a stand-in name would
+     * be stored as a classification no listing could ever match.
+     */
+    private static String spanTitle(JsonNode row, String field) throws DataRetrievalError {
+        JsonNode cell = row.get(field);
+        Matcher m = SPAN_TITLE.matcher(cell == null || !cell.isString() ? "" : cell.asString());
+        if (!m.find()) {
+            throw new DataRetrievalError("Zacks sector row has no " + field + " title: " + row);
         }
-        return "could not found anything for "+rawText;
+        return m.group(1);
     }
 }

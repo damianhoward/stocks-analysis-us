@@ -25,8 +25,11 @@ public class ExcelExport {
 
     private static final Logger log = LoggerFactory.getLogger(ExcelExport.class);
 
-    @Value("${stocks.analysis.us.template}")
-    private String excelTemplate;
+    private final String excelTemplate;
+
+    public ExcelExport(@Value("${stocks.analysis.us.template}") String excelTemplate) {
+        this.excelTemplate = excelTemplate;
+    }
 
     public void generateExcel(List<AnalysisStock> stocks, String excelFileName) {
         log.info("Generating excel {} using template {}", excelFileName, excelTemplate);

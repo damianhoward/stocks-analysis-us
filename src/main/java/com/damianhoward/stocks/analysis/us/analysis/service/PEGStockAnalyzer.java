@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
-import static com.damianhoward.stocks.util.Decimals.diffAsPercentage;
-import static com.damianhoward.stocks.util.Decimals.divide;
+import static com.damianhoward.stocks.analysis.us.analysis.domain.Decimals.diffAsPercentage;
+import static com.damianhoward.stocks.analysis.us.analysis.domain.Decimals.divide;
 
 @Component
 public class PEGStockAnalyzer {

@@ -1,4 +1,4 @@
-package com.damianhoward.stocks.util;
+package com.damianhoward.stocks.analysis.us.analysis.domain;
 
 import org.junit.jupiter.api.Test;
 
@@ -49,11 +49,5 @@ class DecimalsTest {
         assertNull(Decimals.diffAsPercentage(null, BigDecimal.ONE));
         assertNull(Decimals.diffAsPercentage(BigDecimal.ONE, null));
         assertNull(Decimals.diffAsPercentage(BigDecimal.ZERO, BigDecimal.ONE));
-    }
-
-    @Test
-    void formatRoundsTo4DecimalPlacesHalfUp() {
-        assertEquals(new BigDecimal("1.2346"), Decimals.format(new BigDecimal("1.23456789")));
-        assertNull(Decimals.format(null));
     }
 }

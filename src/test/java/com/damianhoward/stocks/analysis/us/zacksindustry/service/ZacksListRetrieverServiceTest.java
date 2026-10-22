@@ -84,4 +84,29 @@ class ZacksListRetrieverServiceTest {
         // The fetch failed, so existing good data must NOT have been deleted.
         verify(repository, never()).deleteByDate(any());
     }
+
+    @Test
+    void aResponseThatIsNotJsonFailsInsteadOfWipingTheDate() throws DataRetrievalError {
+        when(htmlRetriever.getHtml(anyString())).thenReturn("<html>maintenance</html>");
+
+        assertThrows(IllegalStateException.class,
+                () -> service.onZacksListStartEvent(new ZacksListStartEvent(LocalDate.of(2024, 6, 1))));
+        verify(repository, never()).deleteByDate(any());
+    }
+
+    @Test
+    void aMissingOrNonScalarFieldIsNull() throws DataRetrievalError {
+        when(htmlRetriever.getHtml(anyString())).thenReturn(
+                "{\"data\":[{\"industry_id\":\"3\",\"no_of_stocks\":[1,2],\"industry_name\":null}]}");
+
+        LocalDate date = LocalDate.of(2024, 6, 1);
+        service.onZacksListStartEvent(new ZacksListStartEvent(date));
+
+        ArgumentCaptor<List<ZacksList>> captor = ArgumentCaptor.forClass(List.class);
+        verify(repository).saveAll(captor.capture());
+        ZacksList row = captor.getValue().get(0);
+        assertEquals("3", row.index());
+        assertEquals(null, row.total());
+        assertEquals(null, row.industry());
+    }
 }

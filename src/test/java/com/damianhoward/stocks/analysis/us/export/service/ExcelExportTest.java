@@ -9,7 +9,6 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.File;
 import java.io.UncheckedIOException;
@@ -28,8 +27,7 @@ class ExcelExportTest {
 
     @Test
     void generatesWorkbookFromTemplate(@TempDir Path tmp) {
-        ExcelExport export = new ExcelExport();
-        ReflectionTestUtils.setField(export, "excelTemplate", "template/ZacksPriceDetailsTemplate.xls");
+        ExcelExport export = new ExcelExport("template/ZacksPriceDetailsTemplate.xls");
         File out = tmp.resolve("report.xls").toFile();
 
         export.generateExcel(List.of(), out.getAbsolutePath());
@@ -40,8 +38,7 @@ class ExcelExportTest {
 
     @Test
     void fillsTemplateRowsWithStockData(@TempDir Path tmp) throws Exception {
-        ExcelExport export = new ExcelExport();
-        ReflectionTestUtils.setField(export, "excelTemplate", "template/ZacksPriceDetailsTemplate.xls");
+        ExcelExport export = new ExcelExport("template/ZacksPriceDetailsTemplate.xls");
         File out = tmp.resolve("report.xls").toFile();
 
         LocalDate date = LocalDate.of(2024, 6, 1);
@@ -79,8 +76,7 @@ class ExcelExportTest {
 
     @Test
     void aMissingTemplateFailsTheExport(@TempDir Path tmp) {
-        ExcelExport export = new ExcelExport();
-        ReflectionTestUtils.setField(export, "excelTemplate", "template/does-not-exist.xls");
+        ExcelExport export = new ExcelExport("template/does-not-exist.xls");
         File out = tmp.resolve("report.xls").toFile();
 
         // The email step sends whatever file is there, so a failed export must stop the pipeline.

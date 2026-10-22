@@ -1,9 +1,11 @@
 package com.damianhoward.stocks.analysis.us.stocklookup.service.yahoo;
 
-import com.google.gson.Gson;
 import com.damianhoward.stocks.analysis.us.stocklookup.domain.Quote;
 import com.damianhoward.stocks.exception.DataRetrievalError;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -11,6 +13,12 @@ import java.util.Objects;
 
 @Component
 public class YahooStockLookup {
+
+    // The records name only the handful of fields the ranking reads; quoteSummary carries hundreds
+    // more, and a field Yahoo adds must not fail every lookup.
+    private static final JsonMapper JSON = JsonMapper.builder()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build();
 
     private final YahooFinanceClient yahooFinanceClient;
 
@@ -23,7 +31,12 @@ public class YahooStockLookup {
         String symbol = zacksCode.replaceAll("\\.", "");
 
         String json = yahooFinanceClient.fetchQuoteSummary(symbol);
-        QuoteSummary quoteSummary = new Gson().fromJson(json, QuoteSummary.class);
+        QuoteSummary quoteSummary;
+        try {
+            quoteSummary = JSON.readValue(json, QuoteSummary.class);
+        } catch (JacksonException e) {
+            throw new DataRetrievalError(e);
+        }
         if (quoteSummary == null
                 || quoteSummary.quoteSummary() == null
                 || quoteSummary.quoteSummary().result() == null

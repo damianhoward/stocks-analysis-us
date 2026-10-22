@@ -1,8 +1,7 @@
-package com.damianhoward.stocks.util;
+package com.damianhoward.stocks.analysis.us.analysis.domain;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.math.RoundingMode;
 
 /**
  * Null-tolerant {@link BigDecimal} arithmetic, which is the concept these share rather than
@@ -41,13 +40,6 @@ public class Decimals {
         if (one != null && two != null && one.compareTo(BigDecimal.ZERO) != 0) {
             BigDecimal diff = two.subtract(one);
             return diff.divide(one, MathContext.DECIMAL128).multiply(BigDecimal.valueOf(100));
-        }
-        return null;
-    }
-
-    public static BigDecimal format(BigDecimal bd) {
-        if (bd != null) {
-            return bd.setScale(4, RoundingMode.HALF_UP);
         }
         return null;
     }

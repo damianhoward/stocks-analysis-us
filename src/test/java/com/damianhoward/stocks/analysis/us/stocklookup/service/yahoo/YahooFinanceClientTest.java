@@ -34,6 +34,7 @@ class YahooFinanceClientTest {
     private final Queue<Integer> quoteStatuses = new ConcurrentLinkedQueue<>();
     private volatile Integer forcedStatus = null;
     private volatile boolean emptyCrumb = false;
+    private volatile boolean crumbThrottled = false;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -44,6 +45,14 @@ class YahooFinanceClientTest {
             exchange.close();
         });
         server.createContext("/v1/test/getcrumb", exchange -> {
+            if (crumbThrottled) {
+                byte[] body = "Too Many Requests\n".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(429, body.length);
+                try (var os = exchange.getResponseBody()) {
+                    os.write(body);
+                }
+                return;
+            }
             if (emptyCrumb) {
                 exchange.sendResponseHeaders(200, -1);
                 exchange.close();
@@ -114,6 +123,16 @@ class YahooFinanceClientTest {
     }
 
     @Test
+    void aThrottledCrumbRequestIsReportedAsSuchAndNotSentOn() {
+        crumbThrottled = true;
+
+        DataRetrievalError error = assertThrows(DataRetrievalError.class, () -> client.fetchQuoteSummary("AAPL"));
+
+        assertTrue(error.getMessage().contains("429"), "the rate limit is named, not a bad crumb: " + error.getMessage());
+        assertEquals(0, quoteRequests.get(), "the throttle text must never be sent as a crumb");
+    }
+
+    @Test
     void wrapsIoErrorOnQuoteRequest() throws DataRetrievalError {
         // First call succeeds and caches the crumb.
         assertTrue(client.fetchQuoteSummary("AAPL").contains("Test Co"));
@@ -178,6 +197,17 @@ class YahooFinanceClientTest {
                     "session cookie with an RFC 1123 Expires must survive so the crumb validates");
         } finally {
             cookieServer.stop(0);
+        }
+    }
+
+    @Test
+    void anInterruptedCallerFailsAndKeepsItsInterrupt() {
+        Thread.currentThread().interrupt();
+        try {
+            assertThrows(DataRetrievalError.class, () -> client.fetchQuoteSummary("AAPL"));
+            assertTrue(Thread.currentThread().isInterrupted(), "the interrupt is restored for the caller");
+        } finally {
+            Thread.interrupted();
         }
     }
 }

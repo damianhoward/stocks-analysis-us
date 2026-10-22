@@ -40,8 +40,7 @@ public record Quote(
      * The same quote with every money amount multiplied by {@code rate}. Ratios — P/E, beta and
      * the recommendation — have no currency and are unchanged.
      */
-    public Quote convertedTo(String targetCurrency, double rate) {
-        BigDecimal factor = BigDecimal.valueOf(rate);
+    public Quote convertedTo(String targetCurrency, BigDecimal factor) {
         return new Quote(
                 company,
                 targetCurrency,
