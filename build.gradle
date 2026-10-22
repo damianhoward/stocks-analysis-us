@@ -35,7 +35,7 @@ dependencies {
     implementation 'org.jxls:jxls-poi:3.2.0'
 
     // Date and Time
-    implementation 'joda-time:joda-time:2.14.2'
+    implementation 'joda-time:joda-time:2.15.0'
 
     // JSON
     implementation deps.gson
