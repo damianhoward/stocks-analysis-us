@@ -1,7 +1,5 @@
 package com.damianhoward.stocks.analysis.us.zacksindustry.service;
 
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonToken;
 import com.damianhoward.stocks.analysis.us.zacksindustry.domain.ZacksList;
 import com.damianhoward.stocks.analysis.us.zacksindustry.event.ZacksListCompleteEvent;
 import com.damianhoward.stocks.analysis.us.zacksindustry.event.ZacksListStartEvent;
@@ -14,9 +12,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
-import java.io.StringReader;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -26,6 +25,7 @@ import java.util.List;
 public class ZacksListRetrieverService {
 
     private static final Logger log = LoggerFactory.getLogger(ZacksListRetrieverService.class);
+    private static final JsonMapper JSON = new JsonMapper();
 
     private final HtmlRetriever htmlRetriever;
     private final ZacksListRepository repository;
@@ -67,61 +67,34 @@ public class ZacksListRetrieverService {
     }
 
     private List<ZacksList> retrieveIndustries(LocalDate date) throws DataRetrievalError {
-        List<ZacksList> zacksIndustryList = new ArrayList<>();
-
         String url = "https://www.zacks.com/data_handler/industry/z2_industry_data.php?p=0&t=1";
-        String industries = htmlRetriever.getHtml(url);
-        JsonReader reader = new JsonReader(new StringReader(industries));
-        reader.setLenient(true);
+        JsonNode rows;
         try {
-            reader.beginObject();
-            while (reader.hasNext()) {
-                String name = reader.nextName();
-                if (name.equals("data")) {
-                    // read array
-                    reader.beginArray();
-                    while (reader.hasNext()) {
-                        String index = null;
-                        String total = null;
-                        String industry = null;
-                        reader.beginObject();
-                        while (reader.hasNext()) {
-                            String dataName = reader.nextName();
-                            JsonToken token = reader.peek();
-                            if (token == JsonToken.BEGIN_ARRAY) {
-                                reader.skipValue();
-                            } else if (token == JsonToken.BEGIN_OBJECT) {
-                                reader.skipValue();
-                            } else {
-                                if (dataName.equalsIgnoreCase("industry_name")) {
-                                    String value = reader.nextString();
-                                    int startIndex = value.indexOf(">") + 1;
-                                    int endIndex = value.indexOf("</a>");
-                                    industry = value.substring(startIndex, endIndex);
-                                } else if (dataName.equalsIgnoreCase("industry_id")) {
-                                    index = reader.nextString();
-                                } else if (dataName.equalsIgnoreCase("no_of_stocks")) {
-                                    total = reader.nextString();
-                                } else {
-                                    reader.skipValue();
-                                }
-                            }
-                        }
-                        reader.endObject();
-                        zacksIndustryList.add(ZacksList.of(date, index, total, industry));
-                    }
-                    reader.endArray();
-                } else {
-                    reader.skipValue(); //avoid some unhandle events
-                }
-            }
-            reader.endObject();
-            reader.close();
-        } catch (IOException e) {
-           throw new DataRetrievalError(e);
+            rows = JSON.readTree(htmlRetriever.getHtml(url)).path("data");
+        } catch (JacksonException e) {
+            throw new DataRetrievalError(e);
+        }
+        List<ZacksList> zacksIndustryList = new ArrayList<>();
+        for (JsonNode row : rows) {
+            zacksIndustryList.add(ZacksList.of(
+                    date, scalar(row, "industry_id"), scalar(row, "no_of_stocks"), industryName(row)));
         }
         zacksIndustryList.sort(Comparator.comparingInt(o -> Integer.parseInt(o.index())));
         return zacksIndustryList;
+    }
+
+    private static String scalar(JsonNode row, String field) {
+        JsonNode value = row.get(field);
+        return value == null || !value.isValueNode() || value.isNull() ? null : value.asString();
+    }
+
+    /** The name is the text of the first link in an HTML fragment: {@code <a href=...>Banking</a><a ...>(11)</a>}. */
+    private static String industryName(JsonNode row) {
+        String value = scalar(row, "industry_name");
+        if (value == null) {
+            return null;
+        }
+        return value.substring(value.indexOf(">") + 1, value.indexOf("</a>"));
     }
 
 }

@@ -8,7 +8,7 @@ import java.util.List;
  * {@code {"quoteSummary":{"result":[ <store> ],"error":{...}}}}.
  *
  * <p>These are records rather than mutable beans because nothing here is ever populated by hand:
- * Gson builds them from the response through the canonical constructor and the pipeline only
+ * Jackson builds them from the response through the canonical constructor and the pipeline only
  * reads them. Every component is a reference type on purpose — a field Yahoo omits arrives as
  * null, and the reader below distinguishes "absent" from "zero" for all of them. A primitive
  * would silently turn a missing figure into a real one.

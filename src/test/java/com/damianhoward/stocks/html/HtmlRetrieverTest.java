@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * configured to small values so the failure path is exercised without real delays.
  */
 class HtmlRetrieverTest {
+
+    private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
     private HttpServer server;
     private String baseUrl;
@@ -52,6 +55,11 @@ class HtmlRetrieverTest {
                 os.write(body);
             }
         });
+        server.createContext("/moved", exchange -> {
+            exchange.getResponseHeaders().add("Location", "/ok");
+            exchange.sendResponseHeaders(301, -1);
+            exchange.close();
+        });
         server.start();
         baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
     }
@@ -63,21 +71,29 @@ class HtmlRetrieverTest {
 
     @Test
     void returnsTheBodyOnSuccess() throws DataRetrievalError {
-        String body = new HtmlRetriever(5000, 1, 0).getHtml(baseUrl + "/ok");
+        String body = new HtmlRetriever(TIMEOUT, 1, 0).getHtml(baseUrl + "/ok");
         assertTrue(body.contains("Hello Zacks"), "response body returned");
     }
 
     @Test
     void retriesTransientServerErrorThenThrows() {
-        HtmlRetriever retriever = new HtmlRetriever(5000, 3, 0);
+        HtmlRetriever retriever = new HtmlRetriever(TIMEOUT, 3, 0);
         assertThrows(DataRetrievalError.class, () -> retriever.getHtml(baseUrl + "/boom"));
         assertEquals(3, boomHits.get(), "5xx is transient, so all retries should be used");
     }
 
     @Test
     void clientErrorFailsFastWithoutRetrying() {
-        HtmlRetriever retriever = new HtmlRetriever(5000, 5, 0);
+        HtmlRetriever retriever = new HtmlRetriever(TIMEOUT, 5, 0);
         assertThrows(DataRetrievalError.class, () -> retriever.getHtml(baseUrl + "/notfound"));
         assertEquals(1, notFoundHits.get(), "404 is not transient, so it must not be retried");
+    }
+
+    @Test
+    void followsARedirectToThePageItNames() throws DataRetrievalError {
+        // The JDK client does not follow redirects by default; the retriever opts in, as the
+        // Apache client it replaced did, so a moved page is still read.
+        String body = new HtmlRetriever(TIMEOUT, 1, 0).getHtml(baseUrl + "/moved");
+        assertTrue(body.contains("Hello Zacks"), "redirect followed to the page it names");
     }
 }

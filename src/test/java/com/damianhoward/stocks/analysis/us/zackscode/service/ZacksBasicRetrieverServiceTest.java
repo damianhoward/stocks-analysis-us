@@ -7,7 +7,6 @@ import com.damianhoward.stocks.analysis.us.zackscode.event.ZacksBasicCompleteEve
 import com.damianhoward.stocks.analysis.us.zackscode.event.ZacksBasicStartEvent;
 import com.damianhoward.stocks.analysis.us.zackscode.repository.ZacksBasicRepository;
 import com.damianhoward.stocks.exception.DataRetrievalError;
-import com.damianhoward.stocks.html.HtmlParser;
 import com.damianhoward.stocks.html.HtmlRetriever;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,22 +32,32 @@ import static org.mockito.Mockito.when;
 class ZacksBasicRetrieverServiceTest {
 
     private HtmlRetriever htmlRetriever;
-    private HtmlParser htmlParser;
     private ZacksListRepository zacksListRepository;
     private ZacksBasicRepository zacksBasicRepository;
     private ApplicationEventPublisher eventPublisher;
     private ZacksBasicRetrieverService service;
 
+    /**
+     * The shape Zacks serves: a JavaScript object literal (columns is unquoted) whose symbol cell is
+     * an HTML fragment with backslash-escaped quotes and slashes, and whose data marker is spaced.
+     */
+    private static final String INDUSTRY_PAGE = """
+            Software^window.app_data =
+                {
+                columns : [ { "mDataProp"   : "Company" } , { "mDataProp"   : "Symbol" } ],
+                "data"  : [  { "Company"    :  "acme corp", "Symbol"     :  "<button class=\\"modal_external\\" rel=\\"ACME\\">ACME Quick Quote<\\/button>" } ,  { "Company"    :  "globex inc", "Symbol"     :  "<button class=\\"modal_external\\" rel=\\"GBLX\\">GBLX Quick Quote<\\/button>" }  ]
+                }
+            """;
+
     @BeforeEach
     void setUp() {
         htmlRetriever = mock(HtmlRetriever.class);
-        htmlParser = mock(HtmlParser.class);
         zacksListRepository = mock(ZacksListRepository.class);
         zacksBasicRepository = mock(ZacksBasicRepository.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         TransactionTemplate transactionTemplate = new TransactionTemplate(mock(PlatformTransactionManager.class));
         service = new ZacksBasicRetrieverService(
-                htmlRetriever, htmlParser, zacksListRepository, zacksBasicRepository, eventPublisher, transactionTemplate);
+                htmlRetriever, zacksListRepository, zacksBasicRepository, eventPublisher, transactionTemplate);
     }
 
     @Test
@@ -57,14 +66,7 @@ class ZacksBasicRetrieverServiceTest {
         ZacksList industry = ZacksList.of(date, "12", null, "Software");
         when(zacksListRepository.findByDate(date)).thenReturn(Set.of(industry));
 
-        when(htmlRetriever.getHtml(anyString())).thenReturn("industry-html");
-
-        // The service runs replace("\\", "") on the extracted row, so we keep
-        // the fixture free of backslashes for clarity.
-        String row =
-                " \"Company\" : \"acme corp\" something rel=\"ACME\"," +
-                " \"Company\" : \"globex inc\" something rel=\"GBLX\"";
-        when(htmlParser.extractRow(anyString(), anyString())).thenReturn(row);
+        when(htmlRetriever.getHtml(anyString())).thenReturn(INDUSTRY_PAGE);
 
         service.onZacksBasicStartEvent(new ZacksBasicStartEvent(date));
 
@@ -80,6 +82,17 @@ class ZacksBasicRetrieverServiceTest {
 
         verify(zacksBasicRepository).deleteByDate(date);
         verify(eventPublisher).publishEvent(any(ZacksBasicCompleteEvent.class));
+    }
+
+    @Test
+    void aPageWithoutTheDataArrayFailsRatherThanDroppingTheIndustry() throws DataRetrievalError {
+        LocalDate date = LocalDate.of(2024, 6, 1);
+        when(zacksListRepository.findByDate(date)).thenReturn(Set.of(ZacksList.of(date, "12", null, "Software")));
+        when(htmlRetriever.getHtml(anyString())).thenReturn("<html>Zacks is down for maintenance</html>");
+
+        assertThrows(IllegalStateException.class,
+                () -> service.onZacksBasicStartEvent(new ZacksBasicStartEvent(date)));
+        verify(zacksBasicRepository, never()).deleteByDate(any());
     }
 
     @Test

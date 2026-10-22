@@ -4,7 +4,6 @@ import com.damianhoward.stocks.analysis.us.sectormapping.domain.ZacksSectorMappi
 import com.damianhoward.stocks.analysis.us.stocklookup.domain.Quote;
 import com.damianhoward.stocks.analysis.us.stocklookup.domain.StockLookup;
 import com.damianhoward.stocks.analysis.us.zackscode.domain.ZacksCode;
-import com.damianhoward.stocks.util.Decimals;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Embedded;

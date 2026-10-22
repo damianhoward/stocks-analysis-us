@@ -23,6 +23,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.damianhoward.stocks.analysis.us.stocklookup.domain.QuoteBuilder.aQuote;
@@ -158,7 +159,7 @@ class AnalysisServiceTest {
         when(stockLookupRepository.findByDate(date)).thenReturn(Set.of(lookup));
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of());
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
-        when(currencyConverter.convert("GBP", "USD")).thenReturn(1.25);
+        when(currencyConverter.convert("GBP", "USD")).thenReturn(Optional.of(new BigDecimal("1.25")));
         when(pegStockAnalyzer.analyzeStocks(any())).thenReturn(PEGStock.categorised("00 Good"));
 
         service.onAnalysisServiceEvent(new AnalysisStockStartEvent(date));
@@ -180,7 +181,7 @@ class AnalysisServiceTest {
         when(stockLookupRepository.findByDate(date)).thenReturn(Set.of(lookup));
         when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of());
         when(zacksSectorMappingRepository.findByDate(date)).thenReturn(List.of());
-        when(currencyConverter.convert("EUR", "USD")).thenReturn(0.0); // no rate
+        when(currencyConverter.convert("EUR", "USD")).thenReturn(Optional.empty()); // no rate
         when(pegStockAnalyzer.analyzeStocks(any())).thenReturn(PEGStock.categorised("00 Good"));
 
         service.onAnalysisServiceEvent(new AnalysisStockStartEvent(date));

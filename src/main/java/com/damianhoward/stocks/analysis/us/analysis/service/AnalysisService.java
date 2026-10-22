@@ -21,9 +21,11 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -112,25 +114,27 @@ public class AnalysisService {
         eventPublisher.publishEvent(new AnalysisStockCompleteEvent(event.date()));
     }
 
-    /** Normalises a scraped lookup to USD so every downstream stage (calc + export) works in one currency. */
+    /**
+     * Normalises a scraped lookup to USD so every downstream stage (calc + export) works in one
+     * currency. Without a rate the native values are kept: the quote still names its own currency,
+     * so nothing is mislabelled, and the PEG ratios the ranking uses do not depend on currency.
+     */
     private StockLookup toUsd(StockLookup lookup) {
-        double rate = usdRate(lookup.quote().currency());
-        if (rate <= 0.0 || rate == 1.0) {
-            // Already USD, blank/unknown currency, or no rate available -> keep the native values.
+        String currency = lookup.quote().currency();
+        if (StringUtils.isBlank(currency) || "USD".equalsIgnoreCase(currency)) {
             return lookup;
         }
-        return lookup.withQuote(lookup.quote().convertedTo("USD", rate));
+        return usdRate(currency)
+                .map(rate -> lookup.withQuote(lookup.quote().convertedTo("USD", rate)))
+                .orElse(lookup);
     }
 
-    private double usdRate(String currency) {
-        if (StringUtils.isBlank(currency) || "USD".equalsIgnoreCase(currency)) {
-            return 1.0;
-        }
+    private Optional<BigDecimal> usdRate(String currency) {
         try {
             return currencyConverter.convert(currency, "USD");
         } catch (DataRetrievalError e) {
             log.warn("FX {} -> USD failed; retaining native values", currency, e);
-            return 0.0;
+            return Optional.empty();
         }
     }
 

@@ -3,11 +3,12 @@ package com.damianhoward.stocks.fx;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.damianhoward.stocks.exception.DataRetrievalError;
-import com.damianhoward.stocks.html.HtmlParser;
 import com.damianhoward.stocks.html.HtmlRetriever;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
+
+import java.math.BigDecimal;
 
 /**
  * Smoke test against the <em>real</em> Frankfurter API. The mocked tests in
@@ -26,12 +27,12 @@ class CurrencyConverterLiveTest {
     @Test
     void fetchesRealUsdToNzdRate() throws DataRetrievalError {
         CurrencyConverter converter =
-                new CurrencyConverter(new HtmlRetriever(), new HtmlParser(), "https://api.frankfurter.dev/v2/rates");
+                new CurrencyConverter(new HtmlRetriever(), "https://api.frankfurter.dev/v2/rates");
 
-        // USD/NZD is used by no mocked test, so the process-wide cache can't pre-seed it — this is a real fetch.
-        double rate = converter.convert("USD", "NZD");
+        BigDecimal rate = converter.convert("USD", "NZD").orElseThrow();
 
-        // A broad band: just enough to catch a parse failure (0.0) or garbage, never tight enough to flake.
-        assertTrue(rate > 0.5 && rate < 5.0, "expected a plausible USD->NZD rate, got: " + rate);
+        // A broad band: just enough to catch a parse failure or garbage, never tight enough to flake.
+        assertTrue(rate.compareTo(new BigDecimal("0.5")) > 0 && rate.compareTo(BigDecimal.valueOf(5)) < 0,
+                "expected a plausible USD->NZD rate, got: " + rate);
     }
 }

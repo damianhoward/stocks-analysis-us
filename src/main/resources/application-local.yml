@@ -50,8 +50,6 @@ stocks:
 logging:
   file:
     name: "stock-analysis-us.log"
-  level:
-    org.apachehttp.wire: INFO
 
 server:
   port: ${SERVER_PORT:9000}

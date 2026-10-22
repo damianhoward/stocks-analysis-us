@@ -1,72 +1,91 @@
 package com.damianhoward.stocks.fx;
 
 import com.damianhoward.stocks.exception.DataRetrievalError;
-import com.damianhoward.stocks.html.HtmlParser;
 import com.damianhoward.stocks.html.HtmlRetriever;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class CurrencyConverter {
 
     private static final Logger log = LoggerFactory.getLogger(CurrencyConverter.class);
 
-    private final HtmlRetriever htmlRetriever;
-    private final HtmlParser htmlParser;
-    private final String providerUrl;
+    // A rate is read as the decimal Frankfurter wrote rather than the nearest double.
+    private static final JsonMapper JSON = JsonMapper.builder()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .build();
 
-    private static final Map<String, Double> rates = new HashMap<>();
+    private final HtmlRetriever htmlRetriever;
+    private final String providerUrl;
+    // A run converts a handful of currencies for thousands of quotes, so each pair is fetched once.
+    private final Map<String, BigDecimal> rates = new ConcurrentHashMap<>();
 
     public CurrencyConverter(HtmlRetriever htmlRetriever,
-                             HtmlParser htmlParser,
                              @Value("${stocks.analysis.us.fx.provider-url:https://api.frankfurter.dev/v2/rates}") String providerUrl) {
         this.htmlRetriever = htmlRetriever;
-        this.htmlParser = htmlParser;
         this.providerUrl = providerUrl;
     }
 
-    public double convert(String from, String to) throws DataRetrievalError {
-        if (StringUtils.isEmpty(from) || StringUtils.isEmpty(to) || from.length() != 3 || to.length() != 3) {
+    /**
+     * Units of {@code to} that one unit of {@code from} buys, or empty when either code is not a
+     * three-letter code or the provider quotes no rate for it. A failed fetch is an error rather
+     * than an empty answer, so the caller can tell "no such rate" from "could not ask".
+     */
+    public Optional<BigDecimal> convert(String from, String to) throws DataRetrievalError {
+        if (!isCurrencyCode(from) || !isCurrencyCode(to)) {
             log.error("Invalid currency lookup from={} to={}", from, to);
-            return 0.0;
+            return Optional.empty();
         }
-        Double cached = rates.get(from + to);
+        BigDecimal cached = rates.get(from + to);
         if (cached != null) {
-            return cached;
+            return Optional.of(cached);
         }
         // Frankfurter quotes every currency against EUR; ask for both legs and divide.
-        String url = String.format("%s?quotes=%s,%s", providerUrl, from, to);
-        String json = htmlRetriever.getHtml(url);
-
-        double fromRate = rateAgainstEur(json, from);
-        double toRate = rateAgainstEur(json, to);
-        if (fromRate == 0.0 || toRate == 0.0) {
+        String json = htmlRetriever.getHtml(String.format("%s?quotes=%s,%s", providerUrl, from, to));
+        Map<String, BigDecimal> perEur = ratesAgainstEur(json);
+        BigDecimal fromRate = "EUR".equalsIgnoreCase(from) ? BigDecimal.ONE : perEur.get(from.toUpperCase());
+        BigDecimal toRate = "EUR".equalsIgnoreCase(to) ? BigDecimal.ONE : perEur.get(to.toUpperCase());
+        if (fromRate == null || toRate == null || fromRate.signum() <= 0 || toRate.signum() <= 0) {
             log.error("FX response missing rate for {} -> {}: {}", from, to, json);
-            return 0.0;
+            return Optional.empty();
         }
-        double conversion = toRate / fromRate;
+        BigDecimal conversion = toRate.divide(fromRate, MathContext.DECIMAL64);
 
         log.info("FX {} -> {} = {}", from, to, conversion);
         rates.put(from + to, conversion);
-        return conversion;
+        return Optional.of(conversion);
     }
 
-    /** Rate of one EUR in {@code currency}, as quoted by Frankfurter; EUR itself is the base, so 1.0. */
-    private double rateAgainstEur(String json, String currency) {
-        if ("EUR".equalsIgnoreCase(currency)) {
-            return 1.0;
+    private static boolean isCurrencyCode(String code) {
+        return code != null && code.length() == 3;
+    }
+
+    /** Frankfurter answers {@code [{"base":"EUR","quote":"GBP","rate":0.86254}, ...]}. */
+    private static Map<String, BigDecimal> ratesAgainstEur(String json) throws DataRetrievalError {
+        Map<String, BigDecimal> perEur = new HashMap<>();
+        try {
+            for (JsonNode quote : JSON.readTree(json)) {
+                JsonNode rate = quote.get("rate");
+                if (rate != null && rate.isNumber()) {
+                    perEur.put(quote.path("quote").asString(), rate.decimalValue());
+                }
+            }
+        } catch (JacksonException e) {
+            throw new DataRetrievalError(e);
         }
-        int index = json.indexOf("\"quote\":\"" + currency.toUpperCase() + "\"");
-        if (index < 0) {
-            return 0.0;
-        }
-        String raw = htmlParser.extractText(json.substring(index), "\"rate\":", "}").trim();
-        return raw.isEmpty() ? 0.0 : Double.parseDouble(raw);
+        return perEur;
     }
 }

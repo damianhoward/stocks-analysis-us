@@ -9,7 +9,7 @@ import com.damianhoward.stocks.analysis.us.zackscode.domain.ZacksCode;
 import com.damianhoward.stocks.analysis.us.zackscode.repository.ZacksBasicRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -29,6 +29,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
+@EnableConfigurationProperties(StockLookupSettings.class)
 public class StockLookupService {
 
     private static final Logger log = LoggerFactory.getLogger(StockLookupService.class);
@@ -37,29 +38,19 @@ public class StockLookupService {
     private final StockLookupRepository stockLookupRepository;
     private final YahooStockLookup yahooStockLookup;
     private final ApplicationEventPublisher eventPublisher;
+    private final StockLookupSettings settings;
 
-    @Value("${stocks.analysis.us.stocklookup.sleeptime.min}")
-    private int sleepTimeMin;
-
-    @Value("${stocks.analysis.us.stocklookup.sleeptime.max}")
-    private int sleepTimeMax;
-
-    @Value("${stocks.analysis.us.stocklookup.concurrency:8}")
-    private int lookupConcurrency;
-
-    // The collaborators only. The three @Value fields below stay field-injected exactly as
-    // @RequiredArgsConstructor left them: it included final fields and nothing else, so taking
-    // them here would move three properties from Spring's property resolution to constructor
-    // injection that has nothing to supply them.
     public StockLookupService(
             ZacksBasicRepository zacksBasicRepository,
             StockLookupRepository stockLookupRepository,
             YahooStockLookup yahooStockLookup,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            StockLookupSettings settings) {
         this.zacksBasicRepository = zacksBasicRepository;
         this.stockLookupRepository = stockLookupRepository;
         this.yahooStockLookup = yahooStockLookup;
         this.eventPublisher = eventPublisher;
+        this.settings = settings;
     }
 
     @EventListener
@@ -93,7 +84,7 @@ public class StockLookupService {
         // Yahoo tolerates concurrent requests well, so run lookups through a bounded pool
         // instead of one-at-a-time: throughput scales with the pool while each request stays
         // a normal call. Pool size is capped at the work size so tiny runs don't oversize it.
-        int threads = Math.max(1, Math.min(lookupConcurrency, count));
+        int threads = Math.max(1, Math.min(settings.concurrency(), count));
         ExecutorService pool = Executors.newFixedThreadPool(threads);
         List<Future<Void>> results;
         try {
@@ -160,8 +151,8 @@ public class StockLookupService {
     }
 
     private void sleepBetweenLookups() {
-        int min = Math.max(0, sleepTimeMin);
-        int max = Math.max(min, sleepTimeMax);
+        int min = Math.max(0, settings.sleeptime().min());
+        int max = Math.max(min, settings.sleeptime().max());
         if (max == 0) {
             return;
         }

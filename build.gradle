@@ -34,14 +34,8 @@ dependencies {
     // JXLS 3.x (Excel templating) — jxls-poi pulls the matching jxls core transitively
     implementation 'org.jxls:jxls-poi:3.2.0'
 
-    // Date and Time
-    implementation 'joda-time:joda-time:2.15.0'
-
-    // JSON
-    implementation deps.gson
-
-    // HTTP Client
-    implementation 'org.apache.httpcomponents:httpclient:4.5.14'
+    // JSON. Jackson 3, whose version Spring Boot's BOM manages; HTTP is the JDK's own client.
+    implementation 'tools.jackson.core:jackson-databind'
 
     // Email export
     implementation 'org.springframework.boot:spring-boot-starter-mail'

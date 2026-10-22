@@ -7,7 +7,6 @@ import com.damianhoward.stocks.analysis.us.zackscode.repository.ZacksBasicReposi
 import com.damianhoward.stocks.analysis.us.zacksindustry.domain.ZacksList;
 import com.damianhoward.stocks.analysis.us.zacksindustry.repository.ZacksListRepository;
 import com.damianhoward.stocks.exception.DataRetrievalError;
-import com.damianhoward.stocks.html.HtmlParser;
 import com.damianhoward.stocks.html.HtmlRetriever;
 import org.apache.commons.text.WordUtils;
 import org.slf4j.Logger;
@@ -29,8 +28,14 @@ public class ZacksBasicRetrieverService {
 
     private static final Logger log = LoggerFactory.getLogger(ZacksBasicRetrieverService.class);
 
+    private static final String INDUSTRY_URL = "https://www.zacks.com/zrank/zacks_industry_rank_data_handler.php?i=";
+    private static final String DATA_MARKER = "\"data\"  : [";
+    // The page is a JavaScript object literal rather than JSON (unquoted keys, raw newlines in
+    // strings), and each symbol sits in an attribute of an HTML fragment, so rows are matched
+    // rather than parsed: a company's name, then the first rel attribute after it.
+    private static final Pattern COMPANY_ROW = Pattern.compile("\\s+\"Company\"\\s+:\\s+\"(.*?)\".*?rel=\"(.*?)\"");
+
     private final HtmlRetriever htmlRetriever;
-    private final HtmlParser htmlParser;
     private final ZacksListRepository zacksIndustryRepository;
     private final ZacksBasicRepository zacksBasicRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -38,13 +43,11 @@ public class ZacksBasicRetrieverService {
 
     public ZacksBasicRetrieverService(
             HtmlRetriever htmlRetriever,
-            HtmlParser htmlParser,
             ZacksListRepository zacksIndustryRepository,
             ZacksBasicRepository zacksBasicRepository,
             ApplicationEventPublisher eventPublisher,
             TransactionTemplate transactionTemplate) {
         this.htmlRetriever = htmlRetriever;
-        this.htmlParser = htmlParser;
         this.zacksIndustryRepository = zacksIndustryRepository;
         this.zacksBasicRepository = zacksBasicRepository;
         this.eventPublisher = eventPublisher;
@@ -78,30 +81,22 @@ public class ZacksBasicRetrieverService {
     }
 
     private List<ZacksCode> retrieveIndustryDetail(ZacksList zacksIndustry, LocalDate date) throws DataRetrievalError {
-        List<ZacksCode> zacksIndustryBasicList = new ArrayList<>();
-        String index = zacksIndustry.index();
-        String url = "https://www.zacks.com/zrank/zacks_industry_rank_data_handler.php?i=";
-        log.info("Retrieving: "+zacksIndustry);
-        String details = htmlRetriever.getHtml(url+index);
-        String data = htmlParser.extractRow(details, "\"data\"  : [");
-        data = data.replace("\\", "");
-
-        // https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html
-        String pattern = "\\s+\"Company\"\\s+:\\s+\"(.*?)\".*?rel=\"(.*?)\"";
-
-        // Create a Pattern object
-        Pattern r = Pattern.compile(pattern);
-
-        // Now create matcher object.
-        Matcher m = r.matcher(data);
-
-        while (m.find()) {
-            String company = m.group(1);
-            String symbol = m.group(2);
-            zacksIndustryBasicList.add(
-                    ZacksCode.of(date, zacksIndustry.industry(), symbol, WordUtils.capitalizeFully(company)));
+        log.info("Retrieving: {}", zacksIndustry);
+        String details = htmlRetriever.getHtml(INDUSTRY_URL + zacksIndustry.index());
+        // An industry with no stocks still has the array, empty; without it the page has changed,
+        // and reading nothing would quietly drop the industry from the universe.
+        int start = details.indexOf(DATA_MARKER);
+        if (start < 0) {
+            throw new DataRetrievalError("Zacks industry " + zacksIndustry.index() + " has no data array; its layout has changed");
         }
-        log.info("Number of details for industry: "+zacksIndustry.industry() +" is "+zacksIndustryBasicList.size());
+        Matcher row = COMPANY_ROW.matcher(details.substring(start).replace("\\", ""));
+
+        List<ZacksCode> zacksIndustryBasicList = new ArrayList<>();
+        while (row.find()) {
+            zacksIndustryBasicList.add(ZacksCode.of(
+                    date, zacksIndustry.industry(), row.group(2), WordUtils.capitalizeFully(row.group(1))));
+        }
+        log.info("Number of details for industry: {} is {}", zacksIndustry.industry(), zacksIndustryBasicList.size());
         return zacksIndustryBasicList;
     }
 

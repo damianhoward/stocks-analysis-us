@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
@@ -24,9 +23,11 @@ import static com.damianhoward.stocks.analysis.us.stocklookup.domain.QuoteBuilde
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,13 +47,15 @@ class StockLookupServiceTest {
         yahooStockLookup = mock(YahooStockLookup.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
 
-        service = new StockLookupService(
-                zacksBasicRepository, stockLookupRepository, yahooStockLookup, eventPublisher);
-        // Force throttle to a no-op; default min/max values from @Value won't be
-        // wired up without a real ApplicationContext.
-        ReflectionTestUtils.setField(service, "sleepTimeMin", 0);
-        ReflectionTestUtils.setField(service, "sleepTimeMax", 0);
-        ReflectionTestUtils.setField(service, "lookupConcurrency", 4);
+        // No throttle, so the tests run without sleeping between lookups.
+        service = serviceWithSleepWindow(0, 0);
+    }
+
+    private StockLookupService serviceWithSleepWindow(int minSeconds, int maxSeconds) {
+        StockLookupSettings settings =
+                new StockLookupSettings(4, new StockLookupSettings.SleepTime(minSeconds, maxSeconds));
+        return new StockLookupService(
+                zacksBasicRepository, stockLookupRepository, yahooStockLookup, eventPublisher, settings);
     }
 
     @AfterEach
@@ -215,20 +218,22 @@ class StockLookupServiceTest {
     }
 
     @Test
-    void throttleInterruptedSurfacesAsIllegalState() {
-        // Drive the real throttle path: a positive window means it sleeps, and a
-        // pre-set interrupt makes Thread.sleep abort immediately.
-        ReflectionTestUtils.setField(service, "sleepTimeMin", 1);
-        ReflectionTestUtils.setField(service, "sleepTimeMax", 1);
+    void anInterruptedThrottleFailsTheBatchRatherThanAnnouncingIt() throws DataRetrievalError {
+        // A one-second window means each lookup sleeps afterwards. The lookup interrupts its own
+        // worker, so that sleep aborts; the batch must then fail instead of publishing complete.
+        LocalDate date = LocalDate.of(2024, 6, 1);
+        when(zacksBasicRepository.findByDate(date)).thenReturn(Set.of(newZacks("ACME")));
+        when(stockLookupRepository.findByDate(date)).thenReturn(Set.of());
+        when(yahooStockLookup.lookup("ACME")).thenAnswer(invocation -> {
+            Thread.currentThread().interrupt();
+            return aQuote().company("Acme Inc").build();
+        });
 
-        Thread.currentThread().interrupt();
-        try {
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                    () -> ReflectionTestUtils.invokeMethod(service, "sleepBetweenLookups"));
-        } finally {
-            // Clear the flag so it can't leak into other tests.
-            Thread.interrupted();
-        }
+        StockLookupService throttled = serviceWithSleepWindow(1, 1);
+
+        assertThrows(IllegalStateException.class,
+                () -> throttled.onStockLookupStartEvent(new StockLookupStartEvent(date)));
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
