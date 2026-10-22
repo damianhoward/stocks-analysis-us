@@ -144,4 +144,24 @@ class ZacksSectorMappingServiceTest {
         // The download failed, so existing good data must NOT have been deleted.
         verify(repository, never()).deleteByDate(any());
     }
+
+    @Test
+    void aLiteralJacksonCannotReadFailsInsteadOfWipingTheDate() throws DataRetrievalError {
+        when(htmlRetriever.getHtml(anyString())).thenReturn("window.app_data = { \"data\" : [ { 'Sector Group' : x } ] }");
+
+        assertThrows(IllegalStateException.class, () -> service.onZacksSectorMappingStartEvent(
+                new ZacksSectorMappingStartEvent(LocalDate.of(2024, 6, 1))));
+        verify(repository, never()).deleteByDate(any());
+    }
+
+    @Test
+    void aRowWithoutItsSpanTitlesFailsInsteadOfStoringAStandInName() throws DataRetrievalError {
+        // Every column is required, and a made-up name would be a classification no listing matches.
+        when(htmlRetriever.getHtml(anyString())).thenReturn(
+                "window.app_data = { \"data\" : [ { \"Sector Group\" : \"Tech\", \"Medium(M) Industry Group\" : null } ] }");
+
+        assertThrows(IllegalStateException.class, () -> service.onZacksSectorMappingStartEvent(
+                new ZacksSectorMappingStartEvent(LocalDate.of(2024, 6, 1))));
+        verify(repository, never()).deleteByDate(any());
+    }
 }

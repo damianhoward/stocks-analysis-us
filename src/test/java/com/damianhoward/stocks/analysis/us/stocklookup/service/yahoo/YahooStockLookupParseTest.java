@@ -163,4 +163,11 @@ class YahooStockLookupParseTest {
 
         assertNull(result.nextYearEstimateEPS());
     }
+
+    @Test
+    void aResponseThatIsNotJsonIsARetrievalError() throws DataRetrievalError {
+        when(yahooFinanceClient.fetchQuoteSummary("AAPL")).thenReturn("<html>Will be right back</html>");
+
+        assertThrows(DataRetrievalError.class, () -> yahooStockLookup.lookup("AAPL"));
+    }
 }

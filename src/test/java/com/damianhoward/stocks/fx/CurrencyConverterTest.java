@@ -79,4 +79,25 @@ class CurrencyConverterTest {
 
         assertThrows(DataRetrievalError.class, () -> converter.convert("GBP", "USD"));
     }
+
+    @Test
+    void convertsIntoEurByTheInverseOfTheOtherLeg() throws DataRetrievalError {
+        when(retriever.getHtml(contains("quotes=USD,EUR"))).thenReturn(
+                "[{\"date\":\"2026-06-27\",\"base\":\"EUR\",\"quote\":\"USD\",\"rate\":1.25}]");
+
+        assertEquals(0, new BigDecimal("0.8").compareTo(converter.convert("USD", "EUR").orElseThrow()));
+    }
+
+    @Test
+    void aZeroOrNonNumericRateIsNoRate() throws DataRetrievalError {
+        when(retriever.getHtml(contains("quotes=GBP,USD"))).thenReturn(
+                "[{\"base\":\"EUR\",\"quote\":\"GBP\",\"rate\":0},"
+                        + "{\"base\":\"EUR\",\"quote\":\"USD\",\"rate\":\"1.1\"}]");
+        when(retriever.getHtml(contains("quotes=USD,GBP"))).thenReturn(
+                "[{\"base\":\"EUR\",\"quote\":\"USD\",\"rate\":1.1},"
+                        + "{\"base\":\"EUR\",\"quote\":\"GBP\",\"rate\":0}]");
+
+        assertEquals(Optional.empty(), converter.convert("GBP", "USD"));
+        assertEquals(Optional.empty(), converter.convert("USD", "GBP"));
+    }
 }

@@ -111,13 +111,17 @@ public class ZacksSectorMappingService {
         return mapping.subList(1, mapping.size());
     }
 
-    /** Each cell is an HTML fragment whose span title carries the full, untruncated name. */
-    private static String spanTitle(JsonNode row, String field) {
+    /**
+     * Each cell is an HTML fragment whose span title carries the full, untruncated name. A cell
+     * without one means the page has changed: the columns are required, and a stand-in name would
+     * be stored as a classification no listing could ever match.
+     */
+    private static String spanTitle(JsonNode row, String field) throws DataRetrievalError {
         JsonNode cell = row.get(field);
-        if (cell == null || cell.isNull()) {
-            return null;
+        Matcher m = SPAN_TITLE.matcher(cell == null || !cell.isString() ? "" : cell.asString());
+        if (!m.find()) {
+            throw new DataRetrievalError("Zacks sector row has no " + field + " title: " + row);
         }
-        Matcher m = SPAN_TITLE.matcher(cell.asString());
-        return m.find() ? m.group(1) : "could not found anything for " + cell.asString();
+        return m.group(1);
     }
 }

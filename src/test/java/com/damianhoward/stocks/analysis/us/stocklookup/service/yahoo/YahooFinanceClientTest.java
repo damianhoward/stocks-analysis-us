@@ -199,4 +199,15 @@ class YahooFinanceClientTest {
             cookieServer.stop(0);
         }
     }
+
+    @Test
+    void anInterruptedCallerFailsAndKeepsItsInterrupt() {
+        Thread.currentThread().interrupt();
+        try {
+            assertThrows(DataRetrievalError.class, () -> client.fetchQuoteSummary("AAPL"));
+            assertTrue(Thread.currentThread().isInterrupted(), "the interrupt is restored for the caller");
+        } finally {
+            Thread.interrupted();
+        }
+    }
 }
