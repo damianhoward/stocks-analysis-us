@@ -7,23 +7,6 @@ plugins {
 group = 'com.damianhoward'
 version = '1.0-SNAPSHOT'
 
-// Spring Boot's BOM manages both Jackson lines and its dependency management wins over the
-// convention plugins' jackson-bom platform, so a platform bump cannot move them here — Boot
-// 4.1.0 pins 2.21.4 and 3.1.4, and the fixes for the @JsonView and @JsonIgnoreProperties
-// bypasses (GHSA-5gvw-p9qm-jgwh, GHSA-mhm7-754m-9p8w, GHSA-5jmj-h7xm-6q6v) land a patch later.
-// Overriding Boot's own version properties is the supported lever; drop each line once Boot
-// ships a BOM that already meets the floor.
-ext['jackson-2-bom.version'] = '2.21.5'
-ext['jackson-bom.version'] = '3.1.5'
-
-// Boot 4.1.0's log4j-bom pins 2.25.4, which GHSA-qv9r-c865-cp47 covers: MapMessage JSON
-// serialisation writes non-finite floats as bare NaN and Infinity tokens, so a log record
-// carrying one emits JSON no strict parser will read. Fixed in 2.25.5. It arrives through
-// spring-boot-starter-logging as log4j-to-slf4j, so nothing here declares it and Dependabot
-// cannot raise the bump — its security job only updates direct dependencies and fails with
-// security_update_dependency_not_found. Drop this once Boot ships a BOM at 2.25.5 or above.
-ext['log4j2.version'] = '2.25.5'
-
 dependencies {
     // Spring Framework / Data
     implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
