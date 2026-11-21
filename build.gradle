@@ -57,7 +57,7 @@ dependencies {
     testImplementation deps.testcontainers.junit.jupiter
     testImplementation deps.testcontainers.postgresql
     // In-process SMTP server for exercising the real email-send path end to end.
-    testImplementation 'com.icegreen:greenmail-junit5:2.1.14'
+    testImplementation 'com.icegreen:greenmail-junit5:2.1.15'
 }
 
 coverageExcludes = [
