@@ -1,5 +1,5 @@
 plugins {
-    id 'com.damianhoward.java-conventions' version '0.6.0'
+    id 'com.damianhoward.java-conventions' version '0.6.1'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'org.springframework.boot' version '4.1.2'
 }
@@ -29,7 +29,10 @@ dependencies {
 
     // Database Migration
     implementation 'org.springframework.boot:spring-boot-starter-flyway'
-    implementation deps.flyway.postgresql
+    // Versionless so that Boot's BOM, which already holds flyway-core, sets both. The shared
+    // catalog's Flyway is a different line: its 13.12 Postgres module calls a method Boot's
+    // 12.4 core does not have, and the context failed to start with NoSuchMethodError.
+    implementation 'org.flywaydb:flyway-database-postgresql'
 
     // Database Driver
     implementation 'org.postgresql:postgresql:42.7.14'
